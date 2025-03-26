@@ -39,7 +39,7 @@ class Var:
         LOGS.critical('Important Variables Missing. Fill Up and Retry..!! Exiting Now...')
         exit(1)
 
-    OWNER_ID = int(getenv("OWNER_ID", "1242011540"))  # <-- ADD THIS LINE  
+    OWNER_ID = int(getenv("OWNER_ID", "1242011540"))
     RSS_ITEMS = getenv("RSS_ITEMS", "https://subsplease.org/rss/?r=1080").split()
     FSUB_CHATS = list(map(int, getenv('FSUB_CHATS').split()))
     BACKUP_CHANNEL = getenv("BACKUP_CHANNEL") or ""
@@ -47,14 +47,19 @@ class Var:
     LOG_CHANNEL = int(getenv("LOG_CHANNEL") or 0)
     FILE_STORE = int(getenv("FILE_STORE"))
     ADMINS = list(map(int, getenv("ADMINS", "1242011540").split()))
-    
+
     SEND_SCHEDULE = getenv("SEND_SCHEDULE", "False").lower() == "true"
     BRAND_UNAME = getenv("BRAND_UNAME", "@username")
-    FFCODE_1080 = getenv("FFCODE_1080") or """ffmpeg -i '{}' -progress '{}' -preset veryfast -c:v libx264 -s 1920x1080 -pix_fmt yuv420p -crf 30 -c:a libopus -b:a 32k -c:s copy -map 0 -ac 2 -ab 32k -vbr 2 -level 3.1 '{}' -y"""
+    
+    # Replace 360p with Hdrip, and keep other qualities
+    FFCODE_HDRIP = getenv("FFCODE_HDRIP") or "Hdrip"  # Rename to Hdrip without encoding
     FFCODE_720 = getenv("FFCODE_720") or """ffmpeg -i '{}' -progress '{}' -preset superfast -c:v libx264 -s 1280x720 -pix_fmt yuv420p -crf 30 -c:a libopus -b:a 32k -c:s copy -map 0 -ac 2 -ab 32k -vbr 2 -level 3.1 '{}' -y"""
     FFCODE_480 = getenv("FFCODE_480") or """ffmpeg -i '{}' -progress '{}' -preset superfast -c:v libx264 -s 854x480 -pix_fmt yuv420p -crf 30 -c:a libopus -b:a 32k -c:s copy -map 0 -ac 2 -ab 32k -vbr 2 -level 3.1 '{}' -y"""
-    FFCODE_360 = getenv("FFCODE_360") or """ffmpeg -i '{}' -progress '{}' -preset superfast -c:v libx264 -s 640x360 -pix_fmt yuv420p -crf 30 -c:a libopus -b:a 32k -c:s copy -map 0 -ac 2 -ab 32k -vbr 2 -level 3.1 '{}' -y"""
-    QUALS = getenv("QUALS", "360 480 720 1080").split()
+    FFCODE_1080 = getenv("FFCODE_1080") or """ffmpeg -i '{}' -progress '{}' -preset veryfast -c:v libx264 -s 1920x1080 -pix_fmt yuv420p -crf 30 -c:a libopus -b:a 32k -c:s copy -map 0 -ac 2 -ab 32k -vbr 2 -level 3.1 '{}' -y"""
+    
+    QUALS = getenv("QUALS", "Hdrip 480 720 1080").split()  # Replace 360p with Hdrip, keep others
+
+    # Other settings...
     
     AS_DOC = getenv("AS_DOC", "True").lower() == "true"
     THUMB = getenv("THUMB", "https://te.legra.ph/file/621c8d40f9788a1db7753.jpg")
