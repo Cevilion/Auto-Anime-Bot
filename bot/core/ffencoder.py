@@ -32,64 +32,40 @@ class FFEncoder:
         self.__prog_file = 'prog.txt'
         self.__start_time = time()
 
-    async def progress(self):
-        self.__total_time = await mediainfo(self.dl_path, get_duration=True)
-        if isinstance(self.__total_time, str):
-            self.__total_time = 1.0
-        while not (self.__proc is None or self.is_cancelled):
-            async with aiopen(self.__prog_file, 'r+') as p:
-                text = await p.read()
-            if text:
-                time_done = floor(int(t[-1]) / 1000000) if (t := findall("out_time_ms=(\d+)", text)) else 1
-                ensize = int(s[-1]) if (s := findall(r"total_size=(\d+)", text)) else 0
-                
-                diff = time() - self.__start_time
-                speed = ensize / diff
-                percent = round((time_done/self.__total_time)*100, 2)
-                tsize = ensize / (max(percent, 0.01)/100)
-                eta = (tsize-ensize)/max(speed, 0.01)
-    
-                bar = floor(percent/8)*"█" + (12 - floor(percent/8))*"▒"
-                
-                progress_str = f"""<blockquote>‣ <b>Anime Name :</b> <b><i>{self.__name}</i></b></blockquote>
-<blockquote>‣ <b>Status :</b> <i>Encoding</i>
-    <code>[{bar}]</code> {percent}%</blockquote> 
-<blockquote>   ‣ <b>Size :</b> {convertBytes(ensize)} out of ~ {convertBytes(tsize)}
-    ‣ <b>Speed :</b> {convertBytes(speed)}/s
-    ‣ <b>Time Took :</b> {convertTime(diff)}
-    ‣ <b>Time Left :</b> {convertTime(eta)}</blockquote>
-<blockquote>‣ <b>File(s) Encoded:</b> <code>{Var.QUALS.index(self.__qual)} / {len(Var.QUALS)}</code></blockquote>"""
-            
-                await editMessage(self.message, progress_str)
-                if (prog := findall(r"progress=(\w+)", text)) and prog[-1] == 'end':
-                    break
-            await asleep(8)
-    
     async def start_encode(self):
+        # Skip encoding if quality is HDRip
+        if self.__qual == 'hdrip':
+            # Simply copy the file without encoding
+            out_npath = ospath.join("encode", self.__name)
+            await aioremove(self.dl_path)  # Remove any existing file in the output path if necessary
+            await aiorename(self.dl_path, out_npath)  # Rename the downloaded file to the output path
+            return out_npath
+
+        # Continue with encoding process for other qualities
         if ospath.exists(self.__prog_file):
             await aioremove(self.__prog_file)
-    
+
         async with aiopen(self.__prog_file, 'w+'):
             LOGS.info("Progress Temp Generated !")
             pass
-        
+
         dl_npath, out_npath = ospath.join("encode", "ffanimeadvin.mkv"), ospath.join("encode", "ffanimeadvout.mkv")
         await aiorename(self.dl_path, dl_npath)
-        
+
         ffcode = ffargs[self.__qual].format(dl_npath, self.__prog_file, out_npath)
-        
+
         LOGS.info(f'FFCode: {ffcode}')
         self.__proc = await create_subprocess_shell(ffcode, stdout=PIPE, stderr=PIPE)
         proc_pid = self.__proc.pid
         ffpids_cache.append(proc_pid)
         _, return_code = await gather(create_task(self.progress()), self.__proc.wait())
         ffpids_cache.remove(proc_pid)
-        
+
         await aiorename(dl_npath, self.dl_path)
-        
+
         if self.is_cancelled:
             return
-        
+
         if return_code == 0:
             if ospath.exists(out_npath):
                 await aiorename(out_npath, self.out_path)
