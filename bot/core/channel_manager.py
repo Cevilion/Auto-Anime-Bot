@@ -1,11 +1,8 @@
 import json
-import logging
 from bot import bot
-from pyroram import Client, filters
+from pyrogram import Client, filters
 
 CHANNELS_FILE = "channels.json"
-
-logging.basicConfig(level=logging.INFO)  # Enable logging
 
 # Load existing channel mappings
 try:
@@ -16,36 +13,8 @@ except (FileNotFoundError, json.JSONDecodeError):
 
 # Save channel mappings
 def save_channels():
-    try:
-        with open(CHANNELS_FILE, "w") as f:
-            json.dump(anime_channels, f, indent=4)
-    except Exception as e:
-        logging.error(f"Error saving channels: {e}")
-
-# Command: /setchannel <anime_title> <channel_id>
-@bot.on_message(filters.command("setchannel"))
-async def set_channel(client: Client, message):
-    if len(message.command) < 3:
-        return await message.reply("Usage: `/setchannel <anime_title> <channel_id>`")
-
-    anime_title = " ".join(message.command[1:-1])
-    channel_id = message.command[-1]
-
-    logging.info(f"Setting channel for anime: {anime_title}, Channel ID: {channel_id}")
-
-    if not channel_id.startswith("-100"):
-        return await message.reply("Invalid channel ID. It should start with `-100`.")
-
-    try:
-        # Validate the channel ID by checking if bot can access it
-        await client.get_chat(channel_id)
-    except Exception as e:
-        logging.error(f"Failed to validate channel {channel_id}: {e}")
-        return await message.reply(f"Could not access channel with ID `{channel_id}`. Please check the ID or permissions.")
-
-    anime_channels[anime_title.lower()] = channel_id
-    save_channels()
-    await message.reply(f"Channel set for **{anime_title}**: `{channel_id}`")
+    with open(CHANNELS_FILE, "w") as f:
+        json.dump(anime_channels, f, indent=4)
 
 # Command: /listchannels
 @bot.on_message(filters.command("listchannels"))
