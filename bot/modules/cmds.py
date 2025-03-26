@@ -2,6 +2,7 @@ from asyncio import sleep as asleep, gather
 from pyrogram.filters import command, private, user
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from pyrogram.errors import FloodWait, MessageNotModified
+from pyrogram import Client, filters
 
 from bot import bot, bot_loop, Var, ani_cache
 from bot.core.database import db
