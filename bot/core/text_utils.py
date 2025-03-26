@@ -196,13 +196,27 @@ class TextEditor:
         
     @handle_logs
     async def get_upname(self, qual=""):
-        anime_name = self.pdata.get("anime_title")
+    anime_name = self.pdata.get("anime_title")
+    
+    # Check for HDRip first and skip codec logic if it's HDRip
+    if qual == "hdrip":
+        codec = ''  # No codec needed for HDRip
+    else:
+        # For other qualities, check if it's HEVC or AV1 codec
         codec = 'HEVC' if 'libx265' in ffargs[qual] else 'AV1' if 'libaom-av1' in ffargs[qual] else ''
-        lang = 'Multi-Audio' if 'multi-audio' in self.__name.lower() else 'Sub'
-        anime_season = str(ani_s[-1]) if (ani_s := self.pdata.get('anime_season', '01')) and isinstance(ani_s, list) else str(ani_s)
-        if anime_name and self.pdata.get("episode_number"):
-            titles = self.adata.get('title', {})
-            return f"""[S{anime_season}-{'E'+str(self.pdata.get('episode_number')) if self.pdata.get('episode_number') else ''}] {titles.get('english') or titles.get('romaji') or titles.get('native')} {'['+qual+'p]' if qual else ''} {'['+codec.upper()+'] ' if codec else ''}{'['+lang+']'} {Var.BRAND_UNAME}.mkv"""
+    
+    # Handle language
+    lang = 'Multi-Audio' if 'multi-audio' in self.__name.lower() else 'Sub'
+    
+    # Handle anime season
+    anime_season = str(ani_s[-1]) if (ani_s := self.pdata.get('anime_season', '01')) and isinstance(ani_s, list) else str(ani_s)
+    
+    # If anime name and episode number are available, create the title
+    if anime_name and self.pdata.get("episode_number"):
+        titles = self.adata.get('title', {})
+        
+        # Return formatted name, appending HDRip if applicable
+        return f"""[S{anime_season}-{'E'+str(self.pdata.get('episode_number')) if self.pdata.get('episode_number') else ''}] {titles.get('english') or titles.get('romaji') or titles.get('native')} {'['+qual+'p]' if qual and qual != 'hdrip' else 'HDRip'} {'['+codec.upper()+'] ' if codec else ''}{'['+lang+']'} {Var.BRAND_UNAME}.mkv"""
 
     @handle_logs
     async def get_caption(self):
