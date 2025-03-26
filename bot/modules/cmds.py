@@ -15,7 +15,7 @@ async def start_msg(client, message):
     uid = message.from_user.id
     from_user = message.from_user
     txtargs = message.text.split()
-    temp = await sendMessage(message, "<i>Connecting..</i>")
+    temp = await sendMessage(message, "<i>loading...</i>")
     if not await is_fsubbed(uid):
         txt, btns = await get_fsubs(uid, txtargs)
         return await editMessage(temp, txt, InlineKeyboardMarkup(btns))
