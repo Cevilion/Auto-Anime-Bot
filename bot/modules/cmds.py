@@ -12,7 +12,7 @@ from bot.core.func_utils import (
 )
 from bot.core.auto_animes import get_animes
 from bot.core.reporter import rep
-from bot.core.channel_manager import anime_channels  # ✅ Import fixed
+from bot.core.channel_manager import anime_channels, save_channels # ✅ Import fixed
 
 OWNER_ID = Var.OWNER_ID  # ✅ Ensure OWNER_ID is properly set
 
