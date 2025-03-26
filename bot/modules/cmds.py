@@ -15,21 +15,28 @@ from bot.core.channel_manager import anime_channels  # ✅ Import fixed
 
 OWNER_ID = Var.OWNER_ID  # ✅ Ensure OWNER_ID is properly set
 
-# ✅ Fixed `setchannel` to use `bot.on_message` and `OWNER_ID`
-@bot.on_message(command("setchannel") & private & user(OWNER_ID))  
-async def set_channel(client, message):  
-    if len(message.command) < 3:  
-        return await message.reply("Usage: `/setchannel <anime_title> <channel_id>`")  
+# ✅ Unified `/setchannel` Command Handler
+@bot.on_message(filters.command("setchannel") & private & user(OWNER_ID))
+async def set_channel(client, message):
+    if len(message.command) < 3:
+        return await message.reply("Usage: `/setchannel <anime_title> <channel_id>`")
 
-    anime_title = message.command[1]  
-    channel_id = message.command[2]  
+    anime_title = " ".join(message.command[1:-1])  # Handle multi-word anime titles
+    channel_id = message.command[-1]
 
-    if not channel_id.lstrip('-').isdigit():
-        return await message.reply("Invalid channel ID format. Must be a number.")  
+    # Validate if the channel_id starts with -100 for private channels
+    if not channel_id.startswith("-100"):
+        return await message.reply("Invalid channel ID format. It should start with `-100` for private channels.")
 
-    channel_id = int(channel_id)  
-    anime_channels.set(anime_title, channel_id)  
-    await message.reply(f"✅ **Set {anime_title} to post in channel:** `{channel_id}`")  
+    # Ensure that the channel ID is valid
+    try:
+        await client.get_chat(channel_id)  # Validate the channel by checking access
+    except Exception as e:
+        return await message.reply(f"Failed to access the channel. Error: {e}")
+
+    anime_channels[anime_title.lower()] = channel_id  # Save the channel mapping
+    save_channels()  # Save to the channels.json file
+    await message.reply(f"✅ **Set {anime_title} to post in channel:** `{channel_id}`")
 
 @bot.on_message(command('start') & private)
 @new_task
