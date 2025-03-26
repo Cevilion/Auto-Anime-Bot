@@ -47,19 +47,17 @@ async def get_animes(name, torrent, force=False):
         if force or (not (ani_data := await db.getAnime(ani_id)) \
             or (ani_data and not (qual_data := ani_data.get(ep_no))) \
             or (ani_data and qual_data and not all(qual for qual in qual_data.values()))):
-            
+
             if "[Batch]" in name:
                 await rep.report(f"Torrent Skipped!\n\n{name}", "warning")
                 return
-            
+
             await rep.report(f"New Anime Torrent Found!\n\n{name}", "info")
             post_msg = await bot.send_photo(
                 Var.MAIN_CHANNEL,
                 photo=await aniInfo.get_poster(),
                 caption=await aniInfo.get_caption()
             )
-            #post_msg = await sendMessage(Var.MAIN_CHANNEL, (await aniInfo.get_caption()).format(await aniInfo.get_poster()), invert_media=True)
-            
             await asleep(1.5)
             stat_msg = await sendMessage(Var.MAIN_CHANNEL, f"‣ <b>Anime Name :</b> <b><i>{name}</i></b>\n\n<i>Downloading...</i>")
             dl = await TorDownloader("./downloads").download(torrent, name)
@@ -76,49 +74,62 @@ async def get_animes(name, torrent, force=False):
                 await rep.report("Added Task to Queue...", "info")
             await ffQueue.put(post_id)
             await ffEvent.wait()
-            
+
             await ffLock.acquire()
             btns = []
             for qual in Var.QUALS:
                 filename = await aniInfo.get_upname(qual)
-                await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{name}</i></b>\n\n<i>Ready to Encode...</i>")
                 
-                await asleep(1.5)
-                await rep.report("Starting Encode...", "info")
-                try:
-                    out_path = await FFEncoder(stat_msg, dl, filename, qual).start_encode()
-                except Exception as e:
-                    await rep.report(f"Error: {e}, Cancelled,  Retry Again !", "error")
-                    await stat_msg.delete()
-                    ffLock.release()
-                    return
-                await rep.report("Succesfully Compressed Now Going To Upload...", "info")
-                
-                await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{filename}</i></b>\n\n<i>Ready to Upload...</i>")
-                await asleep(1.5)
-                try:
-                    msg = await TgUploader(stat_msg).upload(out_path, qual)
-                except Exception as e:
-                    await rep.report(f"Error: {e}, Cancelled,  Retry Again !", "error")
-                    await stat_msg.delete()
-                    ffLock.release()
-                    return
+                # Check if the quality is Hdrip
+                if qual.lower() == 'hdrip':
+                    # Skip encoding and just upload the downloaded file
+                    await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{name}</i></b>\n\n<i>Ready to Upload...</i>")
+                    await asleep(1.5)
+                    try:
+                        msg = await TgUploader(stat_msg).upload(dl, qual)  # Upload directly without encoding
+                    except Exception as e:
+                        await rep.report(f"Error: {e}, Cancelled, Retry Again!", "error")
+                        await stat_msg.delete()
+                        ffLock.release()
+                        return
+                else:
+                    await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{name}</i></b>\n\n<i>Ready to Encode...</i>")
+                    await asleep(1.5)
+                    await rep.report("Starting Encode...", "info")
+                    try:
+                        out_path = await FFEncoder(stat_msg, dl, filename, qual).start_encode()
+                    except Exception as e:
+                        await rep.report(f"Error: {e}, Cancelled, Retry Again!", "error")
+                        await stat_msg.delete()
+                        ffLock.release()
+                        return
+                    await rep.report("Succesfully Compressed Now Going To Upload...", "info")
+
+                    await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{filename}</i></b>\n\n<i>Ready to Upload...</i>")
+                    await asleep(1.5)
+                    try:
+                        msg = await TgUploader(stat_msg).upload(out_path, qual)
+                    except Exception as e:
+                        await rep.report(f"Error: {e}, Cancelled, Retry Again!", "error")
+                        await stat_msg.delete()
+                        ffLock.release()
+                        return
+
                 await rep.report("Succesfully Uploaded File into Tg...", "info")
-                
                 msg_id = msg.id
                 link = f"https://telegram.me/{(await bot.get_me()).username}?start={await encode('get-'+str(msg_id * abs(Var.FILE_STORE)))}"
-                
+
                 if post_msg:
                     if len(btns) != 0 and len(btns[-1]) == 1:
                         btns[-1].insert(1, InlineKeyboardButton(f"{btn_formatter[qual]} - {convertBytes(msg.document.file_size)}", url=link))
                     else:
                         btns.append([InlineKeyboardButton(f"{btn_formatter[qual]} - {convertBytes(msg.document.file_size)}", url=link)])
                     await editMessage(post_msg, post_msg.caption.html if post_msg.caption else "", InlineKeyboardMarkup(btns))
-                    
+
                 await db.saveAnime(ani_id, ep_no, qual, post_id)
                 bot_loop.create_task(extra_utils(msg_id, out_path))
             ffLock.release()
-            
+
             await stat_msg.delete()
             await aioremove(dl)
         ani_cache['completed'].add(ani_id)
