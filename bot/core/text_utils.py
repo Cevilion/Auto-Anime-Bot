@@ -198,9 +198,9 @@ class TextEditor:
     async def get_upname(self, qual=""):
     anime_name = self.pdata.get("anime_title")
     
-    # Check for HDRip first and skip codec logic if it's HDRip
+    # Check for Hdrip first and skip codec logic if it's Hdrip
     if qual == "hdrip":
-        codec = ''  # No codec needed for HDRip
+        codec = ''  # No codec needed for Hdrip
     else:
         # For other qualities, check if it's HEVC or AV1 codec
         codec = 'HEVC' if 'libx265' in ffargs[qual] else 'AV1' if 'libaom-av1' in ffargs[qual] else ''
@@ -215,8 +215,8 @@ class TextEditor:
     if anime_name and self.pdata.get("episode_number"):
         titles = self.adata.get('title', {})
         
-        # Return formatted name, appending HDRip if applicable
-        return f"""[S{anime_season}-{'E'+str(self.pdata.get('episode_number')) if self.pdata.get('episode_number') else ''}] {titles.get('english') or titles.get('romaji') or titles.get('native')} {'['+qual+'p]' if qual and qual != 'hdrip' else 'HDRip'} {'['+codec.upper()+'] ' if codec else ''}{'['+lang+']'} {Var.BRAND_UNAME}.mkv"""
+        # Return formatted name, appending Hdrip if applicable
+        return f"""[S{anime_season}-{'E'+str(self.pdata.get('episode_number')) if self.pdata.get('episode_number') else ''}] {titles.get('english') or titles.get('romaji') or titles.get('native')} {'['+qual+'p]' if qual and qual != 'hdrip' else '[Hdrip]'} {'['+codec.upper()+'] ' if codec else ''}{'['+lang+']'} {Var.BRAND_UNAME}.mkv"""
 
     @handle_logs
     async def get_caption(self):
