@@ -25,14 +25,15 @@ class TgUploader:
 
         if not ospath.exists(path):  # ✅ Fix: Prevent retrying missing files
             await rep.report(f"File missing: {path}", "error")
-            return
+            return  
 
         try:
-            if qual.lower() == "hdrip":  # ✅ Fix: Mark HDRip as completed
+            if qual.lower() == "hdrip":  # ✅ Fix: Mark HDRip as processed immediately
                 if qual in Var.QUALS:
                     Var.QUALS.remove(qual)
-                self.update_progress()  # ✅ Update encoded progress immediately
+                self.update_progress()  # ✅ Update progress immediately
 
+            msg = None
             if Var.AS_DOC:
                 msg = await self.__client.send_document(
                     chat_id=Var.FILE_STORE,
@@ -51,8 +52,11 @@ class TgUploader:
                     progress=self.progress_status
                 )
 
+            if msg is None or not hasattr(msg, "id"):  # ✅ Fix: Handle NoneType error
+                await rep.report(f"Upload failed for: {path}", "error")
+                return
+
             self.update_progress()  # ✅ Fix: Ensure progress updates after upload
-            return msg
 
         except FloodWait as e:
             sleep(e.value * 1.5)
@@ -77,10 +81,10 @@ class TgUploader:
             speed = current / diff
             eta = round((total - current) / speed)
             bar = floor(percent / 8) * "█" + (12 - floor(percent / 8)) * "▒"
-            
-            # ✅ Fix: Prevents index error in progress count
-            completed = len(Var.QUALS) - Var.QUALS.count(self.__qual)
-            total_qualities = len(Var.QUALS) + 1  
+
+            # ✅ Fix: Ensure correct progress count
+            completed = len(Var.TOTAL_QUALS) - len(Var.QUALS)
+            total_qualities = len(Var.TOTAL_QUALS)  
 
             progress_str = f"""‣ <b>Anime Name :</b> <b><i>{self.__name}</i></b>
 
@@ -97,8 +101,9 @@ class TgUploader:
             await editMessage(self.message, progress_str)
 
     def update_progress(self):
-        """ ✅ Fix: Ensure correct encoded file count after each upload """
-        completed = len(Var.QUALS)  # Get remaining qualities
-        total_qualities = len(Var.QUALS) + 1  # Assume 1 file was uploaded
-        progress_str = f"‣ <b>File(s) Encoded:</b> <code>{total_qualities - completed} / {total_qualities}</code>"
+        """ ✅ Fix: Correct encoded file count logic """
+        completed = len(Var.TOTAL_QUALS) - len(Var.QUALS)
+        total_qualities = len(Var.TOTAL_QUALS)  
+
+        progress_str = f"‣ <b>File(s) Encoded:</b> <code>{completed} / {total_qualities}</code>"
         editMessage(self.message, progress_str)
