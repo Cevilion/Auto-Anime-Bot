@@ -1,118 +1,172 @@
-from time import time, sleep
-from traceback import format_exc
-from math import floor
-from os import path as ospath
-from aiofiles.os import remove as aioremove
-from pyrogram.errors import FloodWait
-
-from bot import bot, Var
-from .func_utils import editMessage, sendMessage, convertBytes, convertTime
+from calendar import month_name
+from datetime import datetime
+from random import choice
+from asyncio import sleep as asleep
+from aiohttp import ClientSession
+from anitopy import parse
+from bot import Var, bot
+from .ffencoder import ffargs
+from .func_utils import handle_logs
 from .reporter import rep
 
-class TgUploader:
-    def __init__(self, message):
-        self.cancelled = False
-        self.message = message
-        self.__name = ""
-        self.__qual = ""
-        self.__client = bot
-        self.__start = time()
-        self.__updater = time()
+CAPTION_FORMAT = """
+<b>㊂  <i>{title}</i></b>
+<b>╭┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅</b>
+<b>⊙</b> <i>Genres:</i> <i>{genres}</i>
+<b>⊙</b> <i>Status:</i> <i>RELEASING</i>
+<b>⊙</b> <i>Source:</i> <i>Subsplease</i>
+<b>⊙</b> <i>Episode:</i> <i>{ep_no}</i>
+<b>⊙</b> <i>Audio: Japanese</i>
+<b>⊙</b> <i>Subtitle: English</i>
+<b>╰┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅</b>
+╭┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅
+⌬  <b><i>Powered By</i></b> ~ </i></b><b><i>{cred}</i></b>
+╰┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅
+"""
 
-        # ✅ Ensure TOTAL_QUALS is set at the start
-        if not hasattr(Var, "TOTAL_QUALS"):
-            Var.TOTAL_QUALS = Var.QUALS.copy()
+GENRES_EMOJI = {
+    "Action": "👊",
+    "Adventure": choice(['🪂', '🧗‍♀']),
+    "Comedy": "🤣",
+    "Drama": "🎭",
+    "Ecchi": choice(['💋', '🥵']),
+    "Fantasy": choice(['🧞', '🧞‍♂', '🧞‍♀', '🌗']),
+    "Hentai": "🔞",
+    "Horror": "☠",
+    "Mahou Shoujo": "☯",
+    "Mecha": "🤖",
+    "Music": "🎸",
+    "Mystery": "🔮",
+    "Psychological": "♟",
+    "Romance": "💞",
+    "Sci-Fi": "🛸",
+    "Slice of Life": choice(['☘', '🍁']),
+    "Sports": "⚽",
+    "Supernatural": "🫧",
+    "Thriller": choice(['🥶', '🔪', '🤯'])
+}
 
-    async def upload(self, path, qual):
-        self.__name = ospath.basename(path)
-        self.__qual = qual
+ANIME_GRAPHQL_QUERY = """
+query ($id: Int, $search: String, $seasonYear: Int) {
+  Media(id: $id, type: ANIME, format_not_in: [MOVIE, MUSIC, MANGA, NOVEL, ONE_SHOT], search: $search, seasonYear: $seasonYear) {
+    id
+    title {
+      romaji
+      english
+      native
+    }
+    genres
+    episodes
+    startDate {
+      year
+      month
+      day
+    }
+    endDate {
+      year
+      month
+      day
+    }
+    averageScore
+    status
+    description
+    siteUrl
+  }
+}
+"""
 
-        if not ospath.exists(path):  # ✅ Prevent retrying missing files
-            await rep.report(f"[ERROR] File missing: {path}", "error")
-            return  
+class AniLister:
+    def __init__(self, anime_name: str, year: int) -> None:
+        self.__api = "https://graphql.anilist.co"
+        self.__ani_name = anime_name
+        self.__ani_year = year
+        self.__vars = {'search': self.__ani_name, 'seasonYear': self.__ani_year}
 
-        try:
-            if qual.lower() == "hdrip":  # ✅ Mark HDRip as processed immediately
-                if qual in Var.QUALS:
-                    Var.QUALS.remove(qual)
-                await self.update_progress()  
+    def __update_vars(self, year=True) -> None:
+        if year:
+            self.__ani_year -= 1
+            self.__vars['seasonYear'] = self.__ani_year
+        else:
+            self.__vars = {'search': self.__ani_name}
 
-            msg = None
-            if Var.AS_DOC:
-                msg = await self.__client.send_document(
-                    chat_id=Var.FILE_STORE,
-                    document=path,
-                    thumb="thumb.jpg" if ospath.exists("thumb.jpg") else None,
-                    caption=f"<i>{self.__name}</i>",
-                    force_document=True,
-                    progress=self.progress_status
-                )
-            else:
-                msg = await self.__client.send_video(
-                    chat_id=Var.FILE_STORE,
-                    video=path,  
-                    thumb="thumb.jpg" if ospath.exists("thumb.jpg") else None,
-                    caption=f"<i>{self.__name}</i>",
-                    progress=self.progress_status
-                )
+    async def post_data(self):
+        async with ClientSession() as sess:
+            async with sess.post(self.__api, json={'query': ANIME_GRAPHQL_QUERY, 'variables': self.__vars}) as resp:
+                return (resp.status, await resp.json(), resp.headers)
 
-            if msg is None or not hasattr(msg, "id"):  # ✅ Handle NoneType error
-                await rep.report(f"[ERROR] Upload failed for: {path}", "error")
-                return
+    async def get_anidata(self):
+        res_code, resp_json, res_heads = await self.post_data()
+        
+        while res_code == 404 and self.__ani_year > 2020:
+            self.__update_vars()
+            await rep.report(f"AniList Query Name: {self.__ani_name}, Retrying with {self.__ani_year}", "warning", log=False)
+            res_code, resp_json, res_heads = await self.post_data()
 
-            if qual in Var.QUALS:  # ✅ Remove only after successful upload
-                Var.QUALS.remove(qual)
-            await self.update_progress()
+        if res_code == 404:
+            self.__update_vars(year=False)
+            res_code, resp_json, res_heads = await self.post_data()
 
-        except FloodWait as e:
-            sleep(e.value * 1.5)
-            return await self.upload(path, qual)
+        if res_code == 200:
+            return resp_json.get('data', {}).get('Media', {})
 
-        except Exception as e:
-            await rep.report(format_exc(), "error")
-            raise e
+        elif res_code == 429:
+            f_timer = int(res_heads.get('Retry-After', 5))
+            await rep.report(f"AniList API FloodWait: {res_code}, Sleeping for {f_timer} seconds!", "error")
+            await asleep(f_timer)
+            return await self.get_anidata()
 
-        finally:
-            if ospath.exists(path):  # ✅ Delete file only if it exists
-                await aioremove(path)
+        else:
+            await rep.report(f"AniList API Error: {res_code}", "error", log=False)
+            return {}
 
-    async def progress_status(self, current, total):
-        if self.cancelled:
-            self.__client.stop_transmission()
-        now = time()
-        diff = now - self.__start
-        if (now - self.__updater) >= 7 or current == total:
-            self.__updater = now
-            percent = round(current / total * 100, 2)
-            speed = current / diff
-            eta = round((total - current) / speed)
-            bar = floor(percent / 8) * "█" + (12 - floor(percent / 8)) * "▒"
+class TextEditor:
+    def __init__(self, name):
+        self.__name = name
+        self.adata = {}
+        self.pdata = parse(name)
 
-            completed = len(Var.TOTAL_QUALS) - len(Var.QUALS)  # ✅ Correct count
-            total_qualities = len(Var.TOTAL_QUALS)  
+    async def load_anilist(self):
+        cache_names = []
+        for option in [(False, False), (False, True), (True, False), (True, True)]:
+            ani_name = await self.parse_name(*option)
+            if ani_name in cache_names:
+                continue
+            cache_names.append(ani_name)
+            self.adata = await AniLister(ani_name, datetime.now().year).get_anidata()
+            if self.adata:
+                break
 
-            progress_str = f"""‣ <b>Anime Name :</b> <b><i>{self.__name}</i></b>
+    @handle_logs
+    async def parse_name(self, no_s=False, no_y=False):
+        anime_name = self.pdata.get("anime_title")
+        anime_season = self.pdata.get("anime_season")
+        anime_year = self.pdata.get("anime_year")
+        pname = anime_name or ""
+        
+        if not no_s and anime_season:
+            pname += f" {anime_season}"
+        if not no_y and anime_year:
+            pname += f" {anime_year}"
+            
+        return pname.strip()
 
-‣ <b>Status :</b> <i>Uploading</i>
-    <code>[{bar}]</code> {percent}%
-    
-    ‣ <b>Size :</b> {convertBytes(current)} out of ~ {convertBytes(total)}
-    ‣ <b>Speed :</b> {convertBytes(speed)}/s
-    ‣ <b>Time Took :</b> {convertTime(diff)}
-    ‣ <b>Time Left :</b> {convertTime(eta)}
+    @handle_logs
+    async def get_poster(self):
+        anime_id = self.adata.get('id')
+        return f"https://img.anili.st/media/{anime_id}" if anime_id else "https://telegra.ph/file/112ec08e59e73b6189a20.jpg"
 
-‣ <b>File(s) Encoded:</b> <code>{completed} / {total_qualities}</code>"""
+    @handle_logs
+    async def get_caption(self):
+        sd = self.adata.get('startDate', {})
+        ed = self.adata.get('endDate', {})
 
-            await editMessage(self.message, progress_str)
+        startdate = f"{month_name[sd.get('month', 1)]} {sd.get('day', '')}, {sd.get('year', '')}".strip(", ")
+        enddate = f"{month_name[ed.get('month', 1)]} {ed.get('day', '')}, {ed.get('year', '')}".strip(", ")
 
-    async def update_progress(self):
-        """ ✅ Fix: Count HDRip as 'encoded' immediately """
-        completed = len(Var.TOTAL_QUALS) - len(Var.QUALS)
-        total_qualities = len(Var.TOTAL_QUALS)
-
-        # ✅ Ensure HDRip is counted
-        if self.__qual.lower() == "hdrip" and self.__qual not in Var.TOTAL_QUALS:
-            completed += 1
-
-        progress_str = f"‣ <b>File(s) Encoded:</b> <code>{completed} / {total_qualities}</code>"
-        await editMessage(self.message, progress_str)  # ✅ Ensure async call inside an async function
+        titles = self.adata.get("title", {})
+        return CAPTION_FORMAT.format(
+            title=titles.get('english') or titles.get('romaji') or titles.get('native'),
+            genres=", ".join(f"{GENRES_EMOJI.get(x, '❓')} #{x.replace(' ', '_').replace('-', '_')}" for x in self.adata.get('genres', [])),
+            ep_no=self.pdata.get("episode_number", "N/A"),
+            cred=Var.BRAND_UNAME
+        )
