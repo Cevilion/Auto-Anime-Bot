@@ -19,7 +19,7 @@ class TgUploader:
         self.__start = time()
         self.__updater = time()
 
-        # ✅ Fix: Ensure TOTAL_QUALS is set at the start
+        # ✅ Ensure TOTAL_QUALS is set correctly
         if not hasattr(Var, "TOTAL_QUALS"):
             Var.TOTAL_QUALS = Var.QUALS.copy()
 
@@ -27,15 +27,15 @@ class TgUploader:
         self.__name = ospath.basename(path)
         self.__qual = qual
 
-        if not ospath.exists(path):  # ✅ Fix: Prevent retrying missing files
+        if not ospath.exists(path):  # ✅ Prevent retrying missing files
             await rep.report(f"[ERROR] File missing: {path}", "error")
             return  
 
         try:
-            if qual.lower() == "hdrip":  # ✅ Fix: Mark HDRip as processed immediately
+            if qual.lower() == "hdrip":  # ✅ Mark HDRip as processed before upload
                 if qual in Var.QUALS:
                     Var.QUALS.remove(qual)
-                self.update_progress()  
+                self.update_progress()
 
             msg = None
             if Var.AS_DOC:
@@ -56,11 +56,11 @@ class TgUploader:
                     progress=self.progress_status
                 )
 
-            if msg is None or not hasattr(msg, "id"):  # ✅ Fix: Handle NoneType error
+            if msg is None or not hasattr(msg, "id"):  # ✅ Fix "NoneType" error
                 await rep.report(f"[ERROR] Upload failed for: {path}", "error")
                 return
 
-            if qual in Var.QUALS:  # ✅ Fix: Remove only after successful upload
+            if qual in Var.QUALS:  # ✅ Remove only after successful upload
                 Var.QUALS.remove(qual)
             self.update_progress()
 
@@ -73,7 +73,7 @@ class TgUploader:
             raise e
 
         finally:
-            if ospath.exists(path):  # ✅ Fix: Delete file only if it exists
+            if ospath.exists(path):  # ✅ Delete file only if it exists
                 await aioremove(path)
 
     async def progress_status(self, current, total):
@@ -88,7 +88,7 @@ class TgUploader:
             eta = round((total - current) / speed)
             bar = floor(percent / 8) * "█" + (12 - floor(percent / 8)) * "▒"
 
-            completed = len(Var.TOTAL_QUALS) - len(Var.QUALS)  # ✅ Fix: Ensure correct count
+            completed = len(Var.TOTAL_QUALS) - len(Var.QUALS)  # ✅ Ensure correct count
             total_qualities = len(Var.TOTAL_QUALS)  
 
             progress_str = f"""‣ <b>Anime Name :</b> <b><i>{self.__name}</i></b>
@@ -106,7 +106,7 @@ class TgUploader:
             await editMessage(self.message, progress_str)
 
     def update_progress(self):
-        """ ✅ Fix: Correct encoded file count logic """
+        """ ✅ Correct encoded file count logic """
         completed = len(Var.TOTAL_QUALS) - len(Var.QUALS)
         total_qualities = len(Var.TOTAL_QUALS)  
 
