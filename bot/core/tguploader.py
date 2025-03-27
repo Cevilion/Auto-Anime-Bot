@@ -23,13 +23,19 @@ class TgUploader:
         self.__name = ospath.basename(path)
         self.__qual = qual
 
+        if not ospath.exists(path):  # ✅ Fix: Prevent retrying missing files
+            await rep.report(f"File missing: {path}", "error")
+            return
+
         try:
-            if qual.lower() == "hdrip":  # ✅ Fix: Mark HDRip as processed
+            if qual.lower() == "hdrip":  # ✅ Fix: Mark HDRip as completed
                 if qual in Var.QUALS:
-                    Var.QUALS.remove(qual)  # Remove HDRip from pending list
-            
+                    Var.QUALS.remove(qual)
+                self.update_progress()  # ✅ Update encoded progress immediately
+
             if Var.AS_DOC:
-                return await self.__client.send_document(chat_id=Var.FILE_STORE,
+                msg = await self.__client.send_document(
+                    chat_id=Var.FILE_STORE,
                     document=path,
                     thumb="thumb.jpg" if ospath.exists("thumb.jpg") else None,
                     caption=f"<i>{self.__name}</i>",
@@ -37,23 +43,28 @@ class TgUploader:
                     progress=self.progress_status
                 )
             else:
-                return await self.__client.send_video(chat_id=Var.FILE_STORE,
-                    video=path,  # ✅ Fix incorrect key (should be 'video', not 'document')
+                msg = await self.__client.send_video(
+                    chat_id=Var.FILE_STORE,
+                    video=path,  # ✅ Fix: Correct 'video' key instead of 'document'
                     thumb="thumb.jpg" if ospath.exists("thumb.jpg") else None,
                     caption=f"<i>{self.__name}</i>",
                     progress=self.progress_status
                 )
 
+            self.update_progress()  # ✅ Fix: Ensure progress updates after upload
+            return msg
+
         except FloodWait as e:
             sleep(e.value * 1.5)
-            return await self.upload(path, qual)  # ✅ Fix incorrect function call
+            return await self.upload(path, qual)
 
         except Exception as e:
             await rep.report(format_exc(), "error")
             raise e
 
         finally:
-            await aioremove(path)
+            if ospath.exists(path):  # ✅ Fix: Delete file only if it still exists
+                await aioremove(path)
 
     async def progress_status(self, current, total):
         if self.cancelled:
@@ -63,9 +74,14 @@ class TgUploader:
         if (now - self.__updater) >= 7 or current == total:
             self.__updater = now
             percent = round(current / total * 100, 2)
-            speed = current / diff 
+            speed = current / diff
             eta = round((total - current) / speed)
-            bar = floor(percent/8)*"█" + (12 - floor(percent/8))*"▒"
+            bar = floor(percent / 8) * "█" + (12 - floor(percent / 8)) * "▒"
+            
+            # ✅ Fix: Prevents index error in progress count
+            completed = len(Var.QUALS) - Var.QUALS.count(self.__qual)
+            total_qualities = len(Var.QUALS) + 1  
+
             progress_str = f"""‣ <b>Anime Name :</b> <b><i>{self.__name}</i></b>
 
 ‣ <b>Status :</b> <i>Uploading</i>
@@ -76,6 +92,13 @@ class TgUploader:
     ‣ <b>Time Took :</b> {convertTime(diff)}
     ‣ <b>Time Left :</b> {convertTime(eta)}
 
-‣ <b>File(s) Encoded:</b> <code>{Var.QUALS.index(self.__qual) + 1} / {len(Var.QUALS) + 1}</code>"""  # ✅ Fix index error
+‣ <b>File(s) Encoded:</b> <code>{completed} / {total_qualities}</code>"""
 
             await editMessage(self.message, progress_str)
+
+    def update_progress(self):
+        """ ✅ Fix: Ensure correct encoded file count after each upload """
+        completed = len(Var.QUALS)  # Get remaining qualities
+        total_qualities = len(Var.QUALS) + 1  # Assume 1 file was uploaded
+        progress_str = f"‣ <b>File(s) Encoded:</b> <code>{total_qualities - completed} / {total_qualities}</code>"
+        editMessage(self.message, progress_str)
