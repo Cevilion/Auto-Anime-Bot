@@ -89,7 +89,7 @@ async def get_animes(name, torrent, force=False):
 
                 try:
                     # **HDRip Handling**
-                    if qual.lower() == 'hdrip':  
+                    if qual.lower() == 'hdri':  
                         renamed_path = f"./downloads/{filename}"
 
                         # Rename the file before uploading
