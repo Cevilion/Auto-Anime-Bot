@@ -21,7 +21,7 @@ btn_formatter = {
     '1080': '𝟭𝟬𝟴𝟬𝗽',
     '720': '𝟳𝟮𝟬𝗽',
     '480': '𝟰𝟴𝟬𝗽',
-    'Hdrip': '𝐻𝑑𝑟𝑖𝑝'  # Add Hdrip
+    'hdrip': '𝐻𝑑𝑟𝑖𝑝'  # Add HDRip
 }
 
 async def fetch_animes():
@@ -38,16 +38,19 @@ async def get_animes(name, torrent, force=False):
         aniInfo = TextEditor(name)
         await aniInfo.load_anilist()
         ani_id, ep_no = aniInfo.adata.get('id'), aniInfo.pdata.get("episode_number")
+        
         if ani_id not in ani_cache['ongoing']:
             ani_cache['ongoing'].add(ani_id)
         elif not force:
             return
+        
         if not force and ani_id in ani_cache['completed']:
             return
-        if force or (not (ani_data := await db.getAnime(ani_id)) \
-            or (ani_data and not (qual_data := ani_data.get(ep_no))) \
-            or (ani_data and qual_data and not all(qual for qual in qual_data.values()))):
-
+        
+        if force or (not (ani_data := await db.getAnime(ani_id)) or 
+            (ani_data and not (qual_data := ani_data.get(ep_no))) or 
+            (ani_data and qual_data and not all(qual for qual in qual_data.values()))):
+            
             if "[Batch]" in name:
                 await rep.report(f"Torrent Skipped!\n\n{name}", "warning")
                 return
@@ -58,8 +61,10 @@ async def get_animes(name, torrent, force=False):
                 photo=await aniInfo.get_poster(),
                 caption=await aniInfo.get_caption()
             )
+
             await asleep(1.5)
             stat_msg = await sendMessage(Var.MAIN_CHANNEL, f"‣ <b>Anime Name :</b> <b><i>{name}</i></b>\n\n<i>Downloading...</i>")
+            
             dl = await TorDownloader("./downloads").download(torrent, name)
             if not dl or not ospath.exists(dl):
                 await rep.report(f"File Download Incomplete, Try Again", "error")
@@ -69,84 +74,76 @@ async def get_animes(name, torrent, force=False):
             post_id = post_msg.id
             ffEvent = Event()
             ff_queued[post_id] = ffEvent
+
             if ffLock.locked():
                 await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{name}</i></b>\n\n<i>Queued to Encode...</i>")
                 await rep.report("Added Task to Queue...", "info")
+            
             await ffQueue.put(post_id)
             await ffEvent.wait()
-
             await ffLock.acquire()
+
             btns = []
             for qual in Var.QUALS:
                 filename = await aniInfo.get_upname(qual)
-                
-                # Check if the quality is Hdrip
-# Check if the quality is Hdrip
-if qual.lower() == 'hdrip':  
-    filename = await aniInfo.get_upname(qual)
-    renamed_path = f"./downloads/{filename}"
 
-    # Rename the file before uploading
-    if ospath.exists(renamed_path):
-        await aioremove(renamed_path)
-    system(f'mv "{dl}" "{renamed_path}"')
+                try:
+                    # **HDRip Handling**
+                    if qual.lower() == 'hdrip':  
+                        renamed_path = f"./downloads/{filename}"
 
-    await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{name}</i></b>\n\n<i>Ready to Upload...</i>")
-    await asleep(1.5)
+                        # Rename the file before uploading
+                        if ospath.exists(renamed_path):
+                            await aioremove(renamed_path)
+                        system(f'mv "{dl}" "{renamed_path}"')
 
-    try:
-        msg = await TgUploader(stat_msg).upload(renamed_path, qual)
-        out_path = renamed_path  # Ensure out_path is assigned before calling extra_utils
-    except Exception as e:
-        await rep.report(f"Error: {e}, Cancelled, Retry Again!", "error")
-        await stat_msg.delete()
-        ffLock.release()
-        return
-else:
-    await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{name}</i></b>\n\n<i>Ready to Encode...</i>")
-    await asleep(1.5)
-    await rep.report("Starting Encode...", "info")
+                        await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{name}</i></b>\n\n<i>Ready to Upload...</i>")
+                        await asleep(1.5)
 
-    try:
-        out_path = await FFEncoder(stat_msg, dl, filename, qual).start_encode()
-    except Exception as e:
-        await rep.report(f"Error: {e}, Cancelled, Retry Again!", "error")
-        await stat_msg.delete()
-        ffLock.release()
-        return
+                        msg = await TgUploader(stat_msg).upload(renamed_path, qual)
+                        out_path = renamed_path  
 
-await rep.report("Succesfully Compressed Now Going To Upload...", "info")
-await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{filename}</i></b>\n\n<i>Ready to Upload...</i>")
-await asleep(1.5)
+                    else:
+                        await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{name}</i></b>\n\n<i>Ready to Encode...</i>")
+                        await asleep(1.5)
+                        await rep.report("Starting Encode...", "info")
 
-try:
-    msg = await TgUploader(stat_msg).upload(out_path, qual)
-except Exception as e:
-    await rep.report(f"Error: {e}, Cancelled, Retry Again!", "error")
-    await stat_msg.delete()
-    ffLock.release()
-    return
+                        out_path = await FFEncoder(stat_msg, dl, filename, qual).start_encode()
 
-await rep.report("Successfully Uploaded File into Tg...", "info")
-msg_id = msg.id
-link = f"https://telegram.me/{(await bot.get_me()).username}?start={await encode('get-'+str(msg_id * abs(Var.FILE_STORE)))}"
+                    await rep.report("Succesfully Processed, Now Uploading...", "info")
+                    await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{filename}</i></b>\n\n<i>Ready to Upload...</i>")
+                    await asleep(1.5)
 
-# Updating post with download links
-if post_msg:
-    if len(btns) != 0 and len(btns[-1]) == 1:
-        btns[-1].insert(1, InlineKeyboardButton(f"{btn_formatter[qual]} - {convertBytes(msg.document.file_size)}", url=link))
-    else:
-        btns.append([InlineKeyboardButton(f"{btn_formatter[qual]} - {convertBytes(msg.document.file_size)}", url=link)])
-    await editMessage(post_msg, post_msg.caption.html if post_msg.caption else "", InlineKeyboardMarkup(btns))
+                    msg = await TgUploader(stat_msg).upload(out_path, qual)
 
-await db.saveAnime(ani_id, ep_no, qual, post_id)
+                    await rep.report("Successfully Uploaded File into Telegram...", "info")
+                    msg_id = msg.id
+                    link = f"https://telegram.me/{(await bot.get_me()).username}?start={await encode('get-'+str(msg_id * abs(Var.FILE_STORE)))}"
 
-# Ensuring extra_utils is executed properly
-bot_loop.create_task(extra_utils(msg_id, out_path))
-ffLock.release()
-await stat_msg.delete()
-await aioremove(dl)
-        ani_cache['completed'].add(ani_id)
+                    # Updating post with download links
+                    if post_msg:
+                        if len(btns) != 0 and len(btns[-1]) == 1:
+                            btns[-1].insert(1, InlineKeyboardButton(f"{btn_formatter[qual]} - {convertBytes(msg.document.file_size)}", url=link))
+                        else:
+                            btns.append([InlineKeyboardButton(f"{btn_formatter[qual]} - {convertBytes(msg.document.file_size)}", url=link)])
+                        await editMessage(post_msg, post_msg.caption.html if post_msg.caption else "", InlineKeyboardMarkup(btns))
+
+                    await db.saveAnime(ani_id, ep_no, qual, post_id)
+
+                    # Run additional utilities asynchronously
+                    bot_loop.create_task(extra_utils(msg_id, out_path))
+                    
+                except Exception as e:
+                    await rep.report(f"Error: {e}, Cancelled, Retry Again!", "error")
+                    await stat_msg.delete()
+                    ffLock.release()
+                    return
+
+            ffLock.release()
+            await stat_msg.delete()
+            await aioremove(dl)
+            ani_cache['completed'].add(ani_id)
+
     except Exception as error:
         await rep.report(format_exc(), "error")
 
@@ -156,5 +153,5 @@ async def extra_utils(msg_id, out_path):
     if Var.BACKUP_CHANNEL != 0:
         for chat_id in Var.BACKUP_CHANNEL.split():
             await msg.copy(int(chat_id))
-            
+
     # MediaInfo, ScreenShots, Sample Video ( Add-ons Features )
