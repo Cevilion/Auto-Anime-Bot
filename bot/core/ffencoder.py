@@ -33,46 +33,46 @@ class FFEncoder:
         self.__start_time = time()
 
     async def start_encode(self):
-        # Skip encoding if quality is HDRip
-        if self.__qual == 'Hdri':
-            # Simply copy the file without encoding
-            out_npath = ospath.join("encode", self.__name)
-            await aioremove(self.dl_path)  # Remove any existing file in the output path if necessary
-            await aiorename(self.dl_path, out_npath)  # Rename the downloaded file to the output path
-            return out_npath
-
-        # Continue with encoding process for other qualities
         if ospath.exists(self.__prog_file):
             await aioremove(self.__prog_file)
 
-        async with aiopen(self.__prog_file, 'w+'):
-            LOGS.info("Progress Temp Generated !")
-            pass
+        # Generate progress file for non-HDRip qualities
+        if self.__qual != 'Hdri':
+            async with aiopen(self.__prog_file, 'w+'):
+                LOGS.info("Progress Temp Generated !")
 
         dl_npath, out_npath = ospath.join("encode", "ffanimeadvin.mkv"), ospath.join("encode", "ffanimeadvout.mkv")
         await aiorename(self.dl_path, dl_npath)
 
-        ffcode = ffargs[self.__qual].format(dl_npath, self.__prog_file, out_npath)
+        # Use "null" as progress file for HDRip to skip tracking
+        progress_file = self.__prog_file if self.__qual != 'Hdri' else "null"
+        ffcode = ffargs[self.__qual].format(dl_npath, progress_file, out_npath)
 
         LOGS.info(f'FFCode: {ffcode}')
         self.__proc = await create_subprocess_shell(ffcode, stdout=PIPE, stderr=PIPE)
         proc_pid = self.__proc.pid
         ffpids_cache.append(proc_pid)
-        _, return_code = await gather(create_task(self.progress()), self.__proc.wait())
-        ffpids_cache.remove(proc_pid)
 
+        # Start progress tracking only for non-HDRip qualities
+        if self.__qual == 'Hdri':
+            await self.__proc.wait()
+            return_code = 0  # HDRip always assumes success unless FFmpeg fails
+        else:
+            _, return_code = await gather(create_task(self.progress()), self.__proc.wait())
+
+        ffpids_cache.remove(proc_pid)
         await aiorename(dl_npath, self.dl_path)
 
         if self.is_cancelled:
             return
 
-        if return_code == 0:
-            if ospath.exists(out_npath):
-                await aiorename(out_npath, self.out_path)
+        if return_code == 0 and ospath.exists(out_npath):
+            await aiorename(out_npath, self.out_path)
             return self.out_path
         else:
-            await rep.report((await self.__proc.stderr.read()).decode().strip(), "error")
-            
+            error_msg = (await self.__proc.stderr.read()).decode().strip()
+            await rep.report(error_msg, "error")
+
     async def cancel_encode(self):
         self.is_cancelled = True
         if self.__proc is not None:
