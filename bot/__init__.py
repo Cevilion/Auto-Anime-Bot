@@ -52,7 +52,7 @@ class Var:
     BRAND_UNAME = getenv("BRAND_UNAME", "@username")
     
     # Replace 360p with Hdrip, and keep other qualities
-    FFCODE_Hdri = getenv("FFCODE_Hdri") or "Hdrip"  # Rename to Hdrip without encoding
+    FFCODE_Hdri = getenv("FFCODE_Hdri") or """ffmpeg -i '{}' -progress '{}' -c:v copy -c:a copy -pix_fmt yuv420p -metadata title='Team Warlords' -metadata author='Team Warlords' -metadata:s:s title='Team Warlords' -metadata:s:a title='Team Warlords' -metadata:s:v title='Team Warlords' '{}' -y"""  # Rename to Hdrip without encoding
     FFCODE_720 = getenv("FFCODE_720") or """ffmpeg -i '{}' -progress '{}' -preset superfast -c:v libx264 -s 1280x720 -pix_fmt yuv420p -crf 30 -c:a libopus -b:a 32k -c:s copy -map 0 -ac 2 -ab 32k -vbr 2 -level 3.1 '{}' -y"""
     FFCODE_480 = getenv("FFCODE_480") or """ffmpeg -i '{}' -progress '{}' -preset superfast -c:v libx264 -s 854x480 -pix_fmt yuv420p -crf 30 -c:a libopus -b:a 32k -c:s copy -map 0 -ac 2 -ab 32k -vbr 2 -level 3.1 '{}' -y"""
     FFCODE_1080 = getenv("FFCODE_1080") or """ffmpeg -i '{}' -progress '{}' -preset veryfast -c:v libx264 -s 1920x1080 -pix_fmt yuv420p -crf 30 -c:a libopus -b:a 32k -c:s copy -map 0 -ac 2 -ab 32k -vbr 2 -level 3.1 '{}' -y"""
