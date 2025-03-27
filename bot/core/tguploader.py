@@ -20,32 +20,39 @@ class TgUploader:
         self.__updater = time()
 
     async def upload(self, path, qual):
-        self.__name = ospath.basename(path)
-        self.__qual = qual
-        try:
-            if Var.AS_DOC:
-                return await self.__client.send_document(chat_id=Var.FILE_STORE,
-                    document=path,
-                    thumb="thumb.jpg" if ospath.exists("thumb.jpg") else None,
-                    caption=f"<i>{self.__name}</i>",
-                    force_document=True,
-                    progress=self.progress_status
-                )
-            else:
-                return await self.__client.send_video(chat_id=Var.FILE_STORE,
-                    document=path,
-                    thumb="thumb.jpg" if ospath.exists("thumb.jpg") else None,
-                    caption=f"<i>{self.__name}</i>",
-                    progress=self.progress_status
-                )
-        except FloodWait as e:
-            sleep(e.value * 1.5)
-            return await upload(path, qual, thumbnail)
-        except Exception as e:
-            await rep.report(format_exc(), "error")
-            raise e
-        finally:
-            await aioremove(path)
+    self.__name = ospath.basename(path)
+    self.__qual = qual
+    
+    try:
+        if qual.lower() == "hdrip":  # ✅ Fix: Mark HDRip as completed
+            Var.QUALS.remove(qual)  # Remove HDRip from the pending list
+        
+        if Var.AS_DOC:
+            return await self.__client.send_document(chat_id=Var.FILE_STORE,
+                document=path,
+                thumb="thumb.jpg" if ospath.exists("thumb.jpg") else None,
+                caption=f"<i>{self.__name}</i>",
+                force_document=True,
+                progress=self.progress_status
+            )
+        else:
+            return await self.__client.send_video(chat_id=Var.FILE_STORE,
+                document=path,
+                thumb="thumb.jpg" if ospath.exists("thumb.jpg") else None,
+                caption=f"<i>{self.__name}</i>",
+                progress=self.progress_status
+            )
+    
+    except FloodWait as e:
+        sleep(e.value * 1.5)
+        return await self.upload(path, qual)  # ✅ Fix incorrect function call
+
+    except Exception as e:
+        await rep.report(format_exc(), "error")
+        raise e
+
+    finally:
+        await aioremove(path)
 
     async def progress_status(self, current, total):
         if self.cancelled:
