@@ -90,12 +90,12 @@ async def get_animes(name, torrent, force=False):
                 try:
                     # **HDRip Handling**
                     if qual.lower() == 'hdri':  
-                        renamed_path = f"./downloads/{filename}"
+    renamed_path = f"./downloads/{filename.replace('Hdri', 'Hdrip')}"  
 
-                        # Rename the file before uploading
-                        if ospath.exists(renamed_path):
-                            await aioremove(renamed_path)
-                        system(f'mv "{dl}" "{renamed_path}"')
+    # Rename the file before uploading  
+    if ospath.exists(renamed_path):
+        await aioremove(renamed_path)  
+    system(f'mv "{dl}" "{renamed_path}"')
 
                         await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{name}</i></b>\n\n<i>Ready to Upload...</i>")
                         await asleep(1.5)
