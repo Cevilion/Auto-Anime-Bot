@@ -89,7 +89,7 @@ class TgUploader:
             file_link = f"https://t.me/{Var.FILE_STORE}/{msg.id}"
             await rep.report(f"Generated File Link: {file_link}", "info")
 
-            await sendMessage(Var.POST_CHANNEL, f"✅ <b>{self.__name}</b>\n🔗 <a href='{file_link}'>Download</a>")
+            await sendMessage(Var.MAIN_CHANNEL, f"✅ <b>{self.__name}</b>\n🔗 <a href='{file_link}'>Download</a>")
 
         except Exception as e:
             await rep.report(f"Failed to create post link: {e}", "error")
