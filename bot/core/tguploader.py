@@ -1,4 +1,5 @@
-from time import time, sleep
+from time import time
+from asyncio import sleep
 from traceback import format_exc
 from math import floor
 from os import path as ospath
@@ -63,7 +64,7 @@ class TgUploader:
                 return
 
             await rep.report(f"Successfully Uploaded File: {self.__name}, Message ID: {msg.id}", "info")
-            await sleep(2)
+            await sleep(2)  # ✅ Fixed sleep issue
 
             if qual in Var.QUALS:
                 Var.QUALS.remove(qual)
