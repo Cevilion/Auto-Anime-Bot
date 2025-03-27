@@ -199,7 +199,7 @@ class TextEditor:
         anime_name = self.pdata.get("anime_title")
 
         # Check for Hdrip first and skip codec logic if it's Hdrip
-        if qual == "hdrip":
+        if qual == "Hdri":
             codec = ''  # No codec needed for Hdrip
         else:
             # For other qualities, check if it's HEVC or AV1 codec
