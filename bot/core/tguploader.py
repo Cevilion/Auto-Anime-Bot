@@ -35,14 +35,16 @@ class TgUploader:
             if qual.lower() == "hdrip":  # ✅ Mark HDRip as processed before upload
                 if qual in Var.QUALS:
                     Var.QUALS.remove(qual)
-                self.update_progress()
+                await self.update_progress()
 
             msg = None
+            thumb_path = "thumb.jpg" if ospath.exists("thumb.jpg") else None
+
             if Var.AS_DOC:
                 msg = await self.__client.send_document(
                     chat_id=Var.FILE_STORE,
                     document=path,
-                    thumb="thumb.jpg" if ospath.exists("thumb.jpg") else None,
+                    thumb=thumb_path,
                     caption=f"<i>{self.__name}</i>",
                     force_document=True,
                     progress=self.progress_status
@@ -51,7 +53,7 @@ class TgUploader:
                 msg = await self.__client.send_video(
                     chat_id=Var.FILE_STORE,
                     video=path,  
-                    thumb="thumb.jpg" if ospath.exists("thumb.jpg") else None,
+                    thumb=thumb_path,
                     caption=f"<i>{self.__name}</i>",
                     progress=self.progress_status
                 )
@@ -62,10 +64,10 @@ class TgUploader:
 
             if qual in Var.QUALS:  # ✅ Remove only after successful upload
                 Var.QUALS.remove(qual)
-            self.update_progress()
+            await self.update_progress()
 
         except FloodWait as e:
-            sleep(e.value * 1.5)
+            await sleep(e.value * 1.5)
             return await self.upload(path, qual)
 
         except Exception as e:
@@ -79,13 +81,15 @@ class TgUploader:
     async def progress_status(self, current, total):
         if self.cancelled:
             self.__client.stop_transmission()
+            return
+
         now = time()
         diff = now - self.__start
         if (now - self.__updater) >= 7 or current == total:
             self.__updater = now
             percent = round(current / total * 100, 2)
-            speed = current / diff
-            eta = round((total - current) / speed)
+            speed = current / diff if diff > 0 else 0
+            eta = round((total - current) / speed) if speed > 0 else 0
             bar = floor(percent / 8) * "█" + (12 - floor(percent / 8)) * "▒"
 
             completed = len(Var.TOTAL_QUALS) - len(Var.QUALS)  # ✅ Ensure correct count
@@ -105,10 +109,10 @@ class TgUploader:
 
             await editMessage(self.message, progress_str)
 
-    def update_progress(self):
+    async def update_progress(self):
         """ ✅ Correct encoded file count logic """
         completed = len(Var.TOTAL_QUALS) - len(Var.QUALS)
         total_qualities = len(Var.TOTAL_QUALS)  
 
         progress_str = f"‣ <b>File(s) Encoded:</b> <code>{completed} / {total_qualities}</code>"
-        editMessage(self.message, progress_str)
+        await editMessage(self.message, progress_str)
