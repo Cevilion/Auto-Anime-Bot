@@ -91,24 +91,32 @@ async def get_animes(name, torrent, force=False):
                     # **HDRip Handling**
                     if qual.lower() == 'hdri':  
     renamed_path = f"./downloads/{filename.replace('Hdri', 'Hdrip').replace('Hdripp', 'Hdrip')}"
+    
+    # Ensure the original file exists before renaming
+    if ospath.exists(dl):
+        system(f'mv "{dl}" "{renamed_path}"')
+    else:
+        await rep.report(f"Error: File not found before renaming: {dl}", "error")
+        return
 
-                        # Rename the file before uploading  
-                        if ospath.exists(renamed_path):
-                            await aioremove(renamed_path)  
-                        system(f'mv "{dl}" "{renamed_path}"')
+    # Check if renaming was successful
+    if not ospath.exists(renamed_path):
+        await rep.report(f"Error: File renaming failed. {renamed_path} not found!", "error")
+        return
 
-                        await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{name}</i></b>\n\n<i>Ready to Upload...</i>")
-                        await asleep(1.5)
+    await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{name}</i></b>\n\n<i>Ready to Upload...</i>")
+    await asleep(1.5)
 
-                        msg = await TgUploader(stat_msg).upload(renamed_path, qual)
-                        out_path = renamed_path  
+    # Use the correct renamed path
+    msg = await TgUploader(stat_msg).upload(renamed_path, qual)
+    out_path = renamed_path  
 
-                    else:
-                        await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{name}</i></b>\n\n<i>Ready to Encode...</i>")
-                        await asleep(1.5)
-                        await rep.report("Starting Encode...", "info")
+else:
+    await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{name}</i></b>\n\n<i>Ready to Encode...</i>")
+    await asleep(1.5)
+    await rep.report("Starting Encode...", "info")
 
-                        out_path = await FFEncoder(stat_msg, dl, filename, qual).start_encode()
+    out_path = await FFEncoder(stat_msg, dl, filename, qual).start_encode()
 
                     await rep.report("Successfully Processed, Now Uploading...", "info")
                     await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{filename}</i></b>\n\n<i>Ready to Upload...</i>")
