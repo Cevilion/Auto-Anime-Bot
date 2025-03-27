@@ -19,7 +19,7 @@ class TgUploader:
         self.__start = time()
         self.__updater = time()
 
-        # ✅ Ensure TOTAL_QUALS is set correctly
+        # ✅ Ensure TOTAL_QUALS is correctly initialized
         if not hasattr(Var, "TOTAL_QUALS"):
             Var.TOTAL_QUALS = Var.QUALS.copy()
 
@@ -27,7 +27,7 @@ class TgUploader:
         self.__name = ospath.basename(path)
         self.__qual = qual
 
-        if not ospath.exists(path):  # ✅ Prevent retrying missing files
+        if not ospath.exists(path):  # ✅ Prevent retrying if file is missing
             await rep.report(f"[ERROR] File missing: {path}", "error")
             return  
 
@@ -40,6 +40,8 @@ class TgUploader:
             msg = None
             thumb_path = "thumb.jpg" if ospath.exists("thumb.jpg") else None
 
+            # ✅ Uploading the file
+            rep(f"[INFO] Uploading {qual} file to Telegram...")
             if Var.AS_DOC:
                 msg = await self.__client.send_document(
                     chat_id=Var.FILE_STORE,
@@ -58,13 +60,20 @@ class TgUploader:
                     progress=self.progress_status
                 )
 
-            if msg is None or not hasattr(msg, "id"):  # ✅ Fix "NoneType" error
+            if not msg or not hasattr(msg, "id"):  # ✅ Fix "NoneType" error
                 await rep.report(f"[ERROR] Upload failed for: {path}", "error")
                 return
 
-            if qual in Var.QUALS:  # ✅ Remove only after successful upload
+            # ✅ Successfully uploaded, now process links and other qualities
+            rep(f"[INFO] Successfully Uploaded File: {self.__name}, Message ID: {msg.id}")
+            await sleep(2)  # ✅ Delay to avoid Telegram API lag
+
+            if qual in Var.QUALS:  # ✅ Remove from QUALS only after successful upload
                 Var.QUALS.remove(qual)
             await self.update_progress()
+
+            # ✅ Ensure link creation happens after upload
+            await self.generate_post_link(msg)
 
         except FloodWait as e:
             await sleep(e.value * 1.5)
@@ -75,8 +84,20 @@ class TgUploader:
             raise e
 
         finally:
-            if ospath.exists(path):  # ✅ Delete file only if it exists
+            if ospath.exists(path):  # ✅ Delete only if file exists
                 await aioremove(path)
+
+    async def generate_post_link(self, msg):
+        """ ✅ Function to generate and send post links after upload """
+        try:
+            file_link = f"https://t.me/{Var.FILE_STORE}/{msg.id}"
+            rep(f"[INFO] Generated File Link: {file_link}")
+
+            # ✅ Send link to the group/channel
+            await sendMessage(Var.POST_CHANNEL, f"✅ <b>{self.__name}</b>\n🔗 <a href='{file_link}'>Download</a>")
+
+        except Exception as e:
+            rep(f"[ERROR] Failed to create post link: {e}")
 
     async def progress_status(self, current, total):
         if self.cancelled:
