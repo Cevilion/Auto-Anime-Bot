@@ -19,19 +19,23 @@ class TgUploader:
         self.__start = time()
         self.__updater = time()
 
+        # ✅ Fix: Ensure TOTAL_QUALS is set at the start
+        if not hasattr(Var, "TOTAL_QUALS"):
+            Var.TOTAL_QUALS = Var.QUALS.copy()
+
     async def upload(self, path, qual):
         self.__name = ospath.basename(path)
         self.__qual = qual
 
         if not ospath.exists(path):  # ✅ Fix: Prevent retrying missing files
-            await rep.report(f"File missing: {path}", "error")
+            await rep.report(f"[ERROR] File missing: {path}", "error")
             return  
 
         try:
             if qual.lower() == "hdrip":  # ✅ Fix: Mark HDRip as processed immediately
                 if qual in Var.QUALS:
                     Var.QUALS.remove(qual)
-                self.update_progress()  # ✅ Update progress immediately
+                self.update_progress()  
 
             msg = None
             if Var.AS_DOC:
@@ -46,17 +50,19 @@ class TgUploader:
             else:
                 msg = await self.__client.send_video(
                     chat_id=Var.FILE_STORE,
-                    video=path,  # ✅ Fix: Correct 'video' key instead of 'document'
+                    video=path,  
                     thumb="thumb.jpg" if ospath.exists("thumb.jpg") else None,
                     caption=f"<i>{self.__name}</i>",
                     progress=self.progress_status
                 )
 
             if msg is None or not hasattr(msg, "id"):  # ✅ Fix: Handle NoneType error
-                await rep.report(f"Upload failed for: {path}", "error")
+                await rep.report(f"[ERROR] Upload failed for: {path}", "error")
                 return
 
-            self.update_progress()  # ✅ Fix: Ensure progress updates after upload
+            if qual in Var.QUALS:  # ✅ Fix: Remove only after successful upload
+                Var.QUALS.remove(qual)
+            self.update_progress()
 
         except FloodWait as e:
             sleep(e.value * 1.5)
@@ -67,7 +73,7 @@ class TgUploader:
             raise e
 
         finally:
-            if ospath.exists(path):  # ✅ Fix: Delete file only if it still exists
+            if ospath.exists(path):  # ✅ Fix: Delete file only if it exists
                 await aioremove(path)
 
     async def progress_status(self, current, total):
@@ -82,8 +88,7 @@ class TgUploader:
             eta = round((total - current) / speed)
             bar = floor(percent / 8) * "█" + (12 - floor(percent / 8)) * "▒"
 
-            # ✅ Fix: Ensure correct progress count
-            completed = len(Var.TOTAL_QUALS) - len(Var.QUALS)
+            completed = len(Var.TOTAL_QUALS) - len(Var.QUALS)  # ✅ Fix: Ensure correct count
             total_qualities = len(Var.TOTAL_QUALS)  
 
             progress_str = f"""‣ <b>Anime Name :</b> <b><i>{self.__name}</i></b>
