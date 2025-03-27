@@ -38,19 +38,19 @@ async def get_animes(name, torrent, force=False):
         aniInfo = TextEditor(name)
         await aniInfo.load_anilist()
         ani_id, ep_no = aniInfo.adata.get('id'), aniInfo.pdata.get("episode_number")
-        
+
         if ani_id not in ani_cache['ongoing']:
             ani_cache['ongoing'].add(ani_id)
         elif not force:
             return
-        
+
         if not force and ani_id in ani_cache['completed']:
             return
-        
+
         if force or (not (ani_data := await db.getAnime(ani_id)) or 
             (ani_data and not (qual_data := ani_data.get(ep_no))) or 
             (ani_data and qual_data and not all(qual for qual in qual_data.values()))):
-            
+
             if "[Batch]" in name:
                 await rep.report(f"Torrent Skipped!\n\n{name}", "warning")
                 return
@@ -64,7 +64,7 @@ async def get_animes(name, torrent, force=False):
 
             await asleep(1.5)
             stat_msg = await sendMessage(Var.MAIN_CHANNEL, f"‣ <b>Anime Name :</b> <b><i>{name}</i></b>\n\n<i>Downloading...</i>")
-            
+
             dl = await TorDownloader("./downloads").download(torrent, name)
             if not dl or not ospath.exists(dl):
                 await rep.report(f"File Download Incomplete, Try Again", "error")
@@ -78,7 +78,7 @@ async def get_animes(name, torrent, force=False):
             if ffLock.locked():
                 await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{name}</i></b>\n\n<i>Queued to Encode...</i>")
                 await rep.report("Added Task to Queue...", "info")
-            
+
             await ffQueue.put(post_id)
             await ffEvent.wait()
             await ffLock.acquire()
@@ -90,27 +90,27 @@ async def get_animes(name, torrent, force=False):
                 try:
                     # **HDRip Handling**
                     if qual.lower() == 'hdri':  
-    renamed_path = f"./downloads/{filename.replace('Hdri', 'Hdrip')}"  
+                        renamed_path = f"./downloads/{filename.replace('Hdri', 'Hdrip')}"  
 
-    # Rename the file before uploading  
-    if ospath.exists(renamed_path):
-        await aioremove(renamed_path)  
-    system(f'mv "{dl}" "{renamed_path}"')
+                        # Rename the file before uploading  
+                        if ospath.exists(renamed_path):
+                            await aioremove(renamed_path)  
+                        system(f'mv "{dl}" "{renamed_path}"')
 
-    await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{name}</i></b>\n\n<i>Ready to Upload...</i>")
-    await asleep(1.5)
+                        await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{name}</i></b>\n\n<i>Ready to Upload...</i>")
+                        await asleep(1.5)
 
-    msg = await TgUploader(stat_msg).upload(renamed_path, qual)
-    out_path = renamed_path  
+                        msg = await TgUploader(stat_msg).upload(renamed_path, qual)
+                        out_path = renamed_path  
 
-else:
-    await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{name}</i></b>\n\n<i>Ready to Encode...</i>")
-    await asleep(1.5)
-    await rep.report("Starting Encode...", "info")
+                    else:
+                        await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{name}</i></b>\n\n<i>Ready to Encode...</i>")
+                        await asleep(1.5)
+                        await rep.report("Starting Encode...", "info")
 
-    out_path = await FFEncoder(stat_msg, dl, filename, qual).start_encode()
+                        out_path = await FFEncoder(stat_msg, dl, filename, qual).start_encode()
 
-                    await rep.report("Succesfully Processed, Now Uploading...", "info")
+                    await rep.report("Successfully Processed, Now Uploading...", "info")
                     await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{filename}</i></b>\n\n<i>Ready to Upload...</i>")
                     await asleep(1.5)
 
@@ -132,7 +132,7 @@ else:
 
                     # Run additional utilities asynchronously
                     bot_loop.create_task(extra_utils(msg_id, out_path))
-                    
+
                 except Exception as e:
                     await rep.report(f"Error: {e}, Cancelled, Retry Again!", "error")
                     await stat_msg.delete()
