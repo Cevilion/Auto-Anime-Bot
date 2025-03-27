@@ -81,7 +81,7 @@ async def get_animes(name, torrent, force=False):
                 filename = await aniInfo.get_upname(qual)
                 
                 # Check if the quality is Hdrip
-                if qual.lower() == 'hdrip':
+                if qual.lower() == 'hdrip':  
     filename = await aniInfo.get_upname(qual)
     renamed_path = f"./downloads/{filename}"
 
