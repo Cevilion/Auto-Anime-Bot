@@ -114,7 +114,7 @@ class TextEditor:
     async def get_caption(self):
         titles = self.adata.get("title", {})
         sd, ed = self.adata.get('startDate', {}), self.adata.get('endDate', {})
-        start_date = f"{month_name.get(sd.get('month', 1))} {sd.get('day', '')}, {sd.get('year', '')}".strip()
+        start_date = f"{month_name[sd.get('month', 1)]} {sd.get('day', '')}, {sd.get('year', '')}".strip()
         end_date = f"{month_name.get(ed.get('month', 1))} {ed.get('day', '')}, {ed.get('year', '')}".strip()
 
         return CAPTION_FORMAT.format(
