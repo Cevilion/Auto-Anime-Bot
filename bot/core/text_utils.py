@@ -129,9 +129,14 @@ class TextEditor:
         titles = self.adata.get("title", {})
         sd, ed = self.adata.get('startDate', {}), self.adata.get('endDate', {})
 
-        # Ensure valid month name to prevent KeyError
-        start_date = f"{month_name.get(sd.get('month', 1), 'January')} {sd.get('day', '')}, {sd.get('year', '')}".strip()
-        end_date = f"{month_name.get(ed.get('month', 1), 'January')} {ed.get('day', '')}, {ed.get('year', '')}".strip()
+        # Ensure valid month name and avoid AttributeError
+        def format_date(date_dict):
+            month_num = date_dict.get('month', 1)  # Default to 1 (January)
+            month_str = month_name[month_num] if 1 <= month_num <= 12 else "January"
+            return f"{month_str} {date_dict.get('day', '')}, {date_dict.get('year', '')}".strip()
+
+        start_date = format_date(sd)
+        end_date = format_date(ed)
 
         return CAPTION_FORMAT.format(
             title=titles.get('english') or titles.get('romaji') or titles.get('native'),
