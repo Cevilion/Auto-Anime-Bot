@@ -34,7 +34,7 @@ class FFEncoder:
 
     async def start_encode(self):
         # Skip encoding if quality is HDRip
-        if self.__qual == 'Hdrip':
+        if self.__qual == 'Hdri':
             # Simply copy the file without encoding
             out_npath = ospath.join("encode", self.__name)
             await aioremove(self.dl_path)  # Remove any existing file in the output path if necessary
