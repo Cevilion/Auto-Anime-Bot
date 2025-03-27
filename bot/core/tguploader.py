@@ -41,7 +41,7 @@ class TgUploader:
             thumb_path = "thumb.jpg" if ospath.exists("thumb.jpg") else None
 
             # ✅ Uploading the file
-            rep(f"[INFO] Uploading {qual} file to Telegram...")
+            await rep.report(f"Uploading {qual} file to Telegram...", "info")
             if Var.AS_DOC:
                 msg = await self.__client.send_document(
                     chat_id=Var.FILE_STORE,
