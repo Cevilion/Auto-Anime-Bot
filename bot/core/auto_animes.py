@@ -82,7 +82,6 @@ async def get_animes(name, torrent, force=False):
                 
                 # Check if the quality is Hdrip
                 if qual.lower() == 'hdrip':
-    # Get the correct renamed filename
     filename = await aniInfo.get_upname(qual)
     renamed_path = f"./downloads/{filename}"
 
@@ -93,8 +92,19 @@ async def get_animes(name, torrent, force=False):
     await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{name}</i></b>\n\n<i>Ready to Upload...</i>")
     await asleep(1.5)
     try:
-        msg = await TgUploader(stat_msg).upload(renamed_path, qual)  # Upload renamed file
-        out_path = renamed_path  # Set correct path for post-processing
+        msg = await TgUploader(stat_msg).upload(renamed_path, qual)
+        out_path = renamed_path  # Ensure out_path is assigned before extra_utils
+    except Exception as e:
+        await rep.report(f"Error: {e}, Cancelled, Retry Again!", "error")
+        await stat_msg.delete()
+        ffLock.release()
+        return
+else:
+    await editMessage(stat_msg, f"‣ <b>Anime Name :</b> <b><i>{name}</i></b>\n\n<i>Ready to Encode...</i>")
+    await asleep(1.5)
+    await rep.report("Starting Encode...", "info")
+    try:
+        out_path = await FFEncoder(stat_msg, dl, filename, qual).start_encode()
     except Exception as e:
         await rep.report(f"Error: {e}, Cancelled, Retry Again!", "error")
         await stat_msg.delete()
