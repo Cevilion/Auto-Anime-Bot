@@ -14,7 +14,7 @@ CAPTION_FORMAT = """
 <b>㊂ <i>{title}</i></b>
 <b>╭┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅</b>
 <b>⊙</b> <i>Genres:</i> <i>{genres}</i>
-<b>⊙</b> <i>Status:</i> <i>RELEASING</i> 
+<b>⊙</b> <i>Status:</i> <i>{status}</i> 
 <b>⊙</b> <i>Source:</i> <i>Subsplease</i>
 <b>⊙</b> <i>Episode:</i> <i>{ep_no}</i>
 <b>⊙</b> <i>Audio: Japanese</i>
@@ -60,7 +60,7 @@ class AniLister:
         self.__api = "https://graphql.anilist.co"
         self.__ani_name = anime_name
         self.__ani_year = year
-        self.__vars = {'search' : self.__ani_name, 'seasonYear': self.__ani_year}
+        self.__vars = {'search': self.__ani_name, 'seasonYear': self.__ani_year}
 
     async def post_data(self):
         async with ClientSession() as sess:
@@ -68,11 +68,16 @@ class AniLister:
                 return resp.status, await resp.json(), resp.headers
 
     async def get_anidata(self):
-        res_code, resp_json, res_heads = await self.post_data()
+        res_code, resp_json, _ = await self.post_data()
+
         while res_code == 404 and self.__ani_year > 2020:
             self.__ani_year -= 1
             self.__vars['seasonYear'] = self.__ani_year
-            res_code, resp_json, res_heads = await self.post_data()
+            res_code, resp_json, _ = await self.post_data()
+
+        # Debugging to check AniList response
+        print(f"AniList Response: {resp_json}")
+
         return resp_json.get('data', {}).get('Media', {}) if res_code == 200 else {}
 
 class TextEditor:
@@ -92,20 +97,29 @@ class TextEditor:
         return f"{anime_name} {anime_season} {anime_year}".strip()
 
     async def get_poster(self):
-        return f"https://img.anili.st/media/{self.adata.get('id')}" if self.adata.get('id') else "https://telegra.ph/file/112ec08e59e73b6189a20.jpg"
+        anime_id = self.adata.get('id')
+        if anime_id:
+            return f"https://img.anili.st/media/{anime_id}"
+        return "https://telegra.ph/file/112ec08e59e73b6189a20.jpg"  # Default fallback image
 
     async def get_upname(self, qual=""):
         anime_name = self.pdata.get("anime_title", "")
         episode_number = self.pdata.get("episode_number", "")
 
         # Determine codec unless it's HDRip
-        codec = "" if qual == "Hdrip" else ('HEVC' if 'libx265' in ffargs.get(qual, {}) else 'AV1' if 'libaom-av1' in ffargs.get(qual, {}) else '')
+        codec = "" if qual.lower() == "hdrip" else (
+            'HEVC' if 'libx265' in ffargs.get(qual, {}) else 'AV1' if 'libaom-av1' in ffargs.get(qual, {}) else ''
+        )
 
         lang = 'Multi-Audio' if 'multi-audio' in self.__name.lower() else 'Sub'
         anime_season = str(self.pdata.get('anime_season', '01'))
 
         # Construct filename
-        title = self.adata.get('title', {}).get('english') or self.adata.get('title', {}).get('romaji') or self.adata.get('title', {}).get('native')
+        title = (
+            self.adata.get('title', {}).get('english')
+            or self.adata.get('title', {}).get('romaji')
+            or self.adata.get('title', {}).get('native')
+        )
         quality_label = f"[{qual}p]" if qual and qual.lower() != "hdrip" else "[Hdrip]"
         codec_label = f"[{codec.upper()}]" if codec else ""
 
@@ -115,9 +129,9 @@ class TextEditor:
         titles = self.adata.get("title", {})
         sd, ed = self.adata.get('startDate', {}), self.adata.get('endDate', {})
 
-        # **Fixed month_name.get() issue**
-        start_date = f"{month_name[sd.get('month', 1)]} {sd.get('day', '')}, {sd.get('year', '')}".strip()
-        end_date = f"{month_name[ed.get('month', 1)]} {ed.get('day', '')}, {ed.get('year', '')}".strip()
+        # Ensure valid month name to prevent KeyError
+        start_date = f"{month_name.get(sd.get('month', 1), 'January')} {sd.get('day', '')}, {sd.get('year', '')}".strip()
+        end_date = f"{month_name.get(ed.get('month', 1), 'January')} {ed.get('day', '')}, {ed.get('year', '')}".strip()
 
         return CAPTION_FORMAT.format(
             title=titles.get('english') or titles.get('romaji') or titles.get('native'),
