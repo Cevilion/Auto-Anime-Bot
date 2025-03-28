@@ -18,7 +18,7 @@ class TgUploader:
         self.__updater = time()
         self.__start = time()  # Start time for calculating elapsed time
         if not hasattr(Var, "TOTAL_QUALS"):
-            Var.TOTAL_QUALS = Var.QUALS.copy()
+            Var.TOTAL_QUALS = set(Var.QUALS)  # Ensure TOTAL_QUALS is a set
 
     async def upload(self, path, qual):
         self.__name = ospath.basename(path)
@@ -30,35 +30,39 @@ class TgUploader:
 
         try:
             if qual.lower() == "hdrip":
-                Var.QUALS.discard(qual)
+                if qual in Var.QUALS:  # Safe removal instead of discard()
+                    Var.QUALS.remove(qual)
                 await self.update_progress()
 
             thumb_path = "thumb.jpg" if ospath.exists("thumb.jpg") else None
             await rep.report(f"Uploading {qual} file to Telegram...", "info")
 
-            msg = await bot.send_document(
+            # Upload file to Telegram
+            msg = await (bot.send_document(
                 chat_id=Var.FILE_STORE,
                 document=path,
                 thumb=thumb_path,
                 caption=f"<i>{self.__name}</i>",
                 force_document=True,
                 progress=self.progress_status
-            ) if Var.AS_DOC else await bot.send_video(
+            ) if Var.AS_DOC else bot.send_video(
                 chat_id=Var.FILE_STORE,
                 video=path,
                 thumb=thumb_path,
                 caption=f"<i>{self.__name}</i>",
                 progress=self.progress_status
-            )
+            ))
 
             if not msg or not hasattr(msg, "id"):
-                await rep.report(f"[ERROR] Upload failed: {path}", "error")
-                return None
+                await rep.report(f"[ERROR] Upload failed: {path}, msg is None", "error")
+                await sleep(5)  # Wait before retrying
+                return await self.upload(path, qual)
 
             await rep.report(f"Uploaded: {self.__name}, Message ID: {msg.id}", "info")
 
-            if qual in Var.QUALS:  # Ensuring safe removal
+            if qual in Var.QUALS:
                 Var.QUALS.remove(qual)
+
             await self.update_progress()
             return msg  # Ensure we return the message object
 
