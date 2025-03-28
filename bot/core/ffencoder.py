@@ -80,3 +80,18 @@ class FFEncoder:
                 self.__proc.kill()
             except:
                 pass
+
+    async def progress(self):
+        """Track FFmpeg progress."""
+        self.progress = {}
+        while not self.is_cancelled and self.__proc.returncode is None:
+            if ospath.exists(self.__prog_file):
+                async with aiopen(self.__prog_file, 'r') as f:
+                    text = await f.read()
+                    times = findall(r'time=(\d+:\d+:\d+\.\d+)', text)
+                    if times:
+                        self.__total_time = convertTime(times[-1])
+                        elapsed = time() - self.__start_time
+                        percent = min(100, floor((elapsed / self.__total_time) * 100))
+                        await editMessage(self.message, f"Encoding... {percent}%")
+            await asleep(10)  # Update every 10 seconds
