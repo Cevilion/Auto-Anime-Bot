@@ -57,7 +57,7 @@ class Var:
     FFCODE_480 = getenv("FFCODE_480") or """ffmpeg -i '{}' -progress '{}' -preset superfast -c:v libx264 -s 854x480 -pix_fmt yuv420p -crf 30 -c:a libopus -b:a 32k -c:s copy -map 0 -ac 2 -ab 32k -vbr 2 -level 3.1 '{}' -y"""
     FFCODE_1080 = getenv("FFCODE_1080") or """ffmpeg -i '{}' -progress '{}' -preset veryfast -c:v libx264 -s 1920x1080 -pix_fmt yuv420p -crf 30 -c:a libopus -b:a 32k -c:s copy -map 0 -ac 2 -ab 32k -vbr 2 -level 3.1 '{}' -y"""
     
-    Var.QUALS = set(getenv("QUALS", "Hdrip 480 720 1080").split())  # Replace 360p with Hdrip, keep others
+    QUALS = set(getenv("QUALS", "Hdrip 480 720 1080").split())  # Replace 360p with Hdrip, keep others
 
     # Other settings...
     
