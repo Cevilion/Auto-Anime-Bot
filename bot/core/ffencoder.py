@@ -10,7 +10,7 @@ from asyncio.subprocess import PIPE
 from bot import Var, ffpids_cache, LOGS
 from .func_utils import mediainfo, convertBytes, convertTime, sendMessage, editMessage
 from .reporter import rep
-from .upload import upload_to_telegram  # Importing the upload function
+from bot.core.tguploader import TgUploader  # Importing TgUploader
 
 ffargs = {
     '1080': Var.FFCODE_1080,
@@ -78,7 +78,9 @@ class FFEncoder:
         """Uploads the encoded file before proceeding to the next quality."""
         LOGS.info(f"Uploading {self.__qual}p...")
         await sendMessage(self.message.chat.id, f"Uploading {self.__qual}p...")
-        await upload_to_telegram(self.message, self.out_path, self.__qual)
+
+        uploader = TgUploader(self.message)  # Use TgUploader correctly
+        await uploader.upload(self.out_path, self.__qual)  # Correct function call
 
     async def next_encode(self):
         """Ensures encoding follows HDRip → 480p → 720p → 1080p."""
