@@ -67,8 +67,6 @@ class FFEncoder:
         if return_code == 0 and ospath.exists(out_npath):
             await aiorename(out_npath, self.out_path)
             await self.upload_file()  # Ensure upload finishes before next encode
-            if not self.is_cancelled:
-                await self.next_encode()
             return self.out_path
         else:
             error_msg = (await self.__proc.stderr.read()).decode().strip()
@@ -78,7 +76,12 @@ class FFEncoder:
         """Uploads the encoded file before proceeding to the next quality."""
         LOGS.info(f"Uploading {self.__qual}p...")
         await sendMessage(self.message.chat.id, f"Uploading {self.__qual}p...")
-        await TgUploader().upload(self.message, self.out_path, self.__qual)  # Corrected upload function
+
+        uploader = TgUploader(self.message)  # Corrected instantiation
+        await uploader.upload(self.out_path, self.__qual)  # Fixed method call
+
+        if not self.is_cancelled:
+            await self.next_encode()
 
     async def next_encode(self):
         """Ensures encoding follows HDRip → 480p → 720p → 1080p."""
