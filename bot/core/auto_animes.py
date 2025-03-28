@@ -84,7 +84,7 @@ async def get_animes(name, torrent, force=False):
             await ffLock.acquire()
 
             btns = []
-            for qual in Var.QUALS:
+            for qual in list(Var.QUALS):  # Iterate over a copy
                 filename = await aniInfo.get_upname(qual)
                 out_path = None
 
