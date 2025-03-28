@@ -15,7 +15,9 @@ class TgUploader:
         self.message = message
         self.__name = ""
         self.__qual = ""
+        self.__start = time()
         self.__updater = time()
+        
         if not hasattr(Var, "TOTAL_QUALS"):
             Var.TOTAL_QUALS = Var.QUALS.copy()
 
@@ -74,7 +76,7 @@ class TgUploader:
         if (now - self.__updater) >= 7 or current == total:
             self.__updater = now
             percent = round(current / total * 100, 2)
-            speed = current / (now - self.__updater) if (now - self.__updater) > 0 else 0
+            speed = current / (now - self.__start) if (now - self.__start) > 0 else 0
             eta = round((total - current) / speed) if speed > 0 else 0
             bar = floor(percent / 8) * "█" + (12 - floor(percent / 8)) * "▒"
 
