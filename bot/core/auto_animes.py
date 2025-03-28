@@ -86,9 +86,9 @@ async def get_animes(name, torrent, force=False):
             btns = []
             for qual in Var.QUALS:
                 filename = await aniInfo.get_upname(qual)
+                out_path = None
 
                 try:
-                    # **HDRip Handling**
                     if qual.lower() == 'hdri':  
                         renamed_path = f"./downloads/{filename.replace('Hdri', 'Hdrip').replace('Hdripp', 'Hdrip')}"
 
@@ -101,7 +101,7 @@ async def get_animes(name, torrent, force=False):
 
                         if not ospath.exists(renamed_path):
                             await rep.report(f"Error: HDRip Processing Failed: {renamed_path} Not Found!", "error")
-                            return
+                            continue
 
                         await rep.report("HDRip Processing Done, Now Uploading...", "info")
                         out_path = renamed_path
@@ -123,7 +123,6 @@ async def get_animes(name, torrent, force=False):
                     msg_id = msg.id
                     link = f"https://telegram.me/{(await bot.get_me()).username}?start={await encode('get-'+str(msg_id * abs(Var.FILE_STORE)))}"
 
-                    # Updating post with download links
                     if post_msg:
                         if len(btns) != 0 and len(btns[-1]) == 1:
                             btns[-1].insert(1, InlineKeyboardButton(f"{btn_formatter[qual]} - {convertBytes(msg.document.file_size)}", url=link))
@@ -133,7 +132,6 @@ async def get_animes(name, torrent, force=False):
 
                     await db.saveAnime(ani_id, ep_no, qual, post_id)
 
-                    # Run additional utilities asynchronously
                     bot_loop.create_task(extra_utils(msg_id, out_path))
 
                 except Exception as e:
