@@ -31,7 +31,7 @@ class TgUploader:
         try:
             if qual.lower() == "hdrip":
                 if qual in Var.QUALS:
-    Var.QUALS.remove(qual)
+                    Var.QUALS.remove(qual)
                 await self.update_progress()
 
             thumb_path = "thumb.jpg" if ospath.exists("thumb.jpg") else None
@@ -57,7 +57,9 @@ class TgUploader:
                 return None
 
             await rep.report(f"Uploaded: {self.__name}, Message ID: {msg.id}", "info")
-            Var.QUALS.discard(qual)
+
+            if qual in Var.QUALS:  # Ensuring safe removal
+                Var.QUALS.remove(qual)
             await self.update_progress()
             return msg  # Ensure we return the message object
 
