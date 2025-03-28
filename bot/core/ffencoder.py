@@ -1,4 +1,4 @@
-from re import findall 
+from re import findall
 from math import floor
 from time import time
 from os import path as ospath
@@ -36,15 +36,13 @@ class FFEncoder:
         if ospath.exists(self.__prog_file):
             await aioremove(self.__prog_file)
 
-        # Generate progress file for non-HDRip qualities
         if self.__qual != 'Hdri':
             async with aiopen(self.__prog_file, 'w+'):
-                LOGS.info("Progress Temp Generated !")
+                LOGS.info("Progress Temp Generated!")
 
         dl_npath, out_npath = ospath.join("encode", "ffanimeadvin.mkv"), ospath.join("encode", "ffanimeadvout.mkv")
         await aiorename(self.dl_path, dl_npath)
 
-        # Use "null" as progress file for HDRip to skip tracking
         progress_file = self.__prog_file if self.__qual != 'Hdri' else "null"
         ffcode = ffargs[self.__qual].format(dl_npath, progress_file, out_npath)
 
@@ -53,10 +51,9 @@ class FFEncoder:
         proc_pid = self.__proc.pid
         ffpids_cache.append(proc_pid)
 
-        # Start progress tracking only for non-HDRip qualities
         if self.__qual == 'Hdri':
             await self.__proc.wait()
-            return_code = 0  # HDRip always assumes success unless FFmpeg fails
+            return_code = 0
         else:
             _, return_code = await gather(create_task(self.progress()), self.__proc.wait())
 
@@ -68,10 +65,28 @@ class FFEncoder:
 
         if return_code == 0 and ospath.exists(out_npath):
             await aiorename(out_npath, self.out_path)
+            await self.next_encode()
             return self.out_path
         else:
             error_msg = (await self.__proc.stderr.read()).decode().strip()
             await rep.report(error_msg, "error")
+
+    async def next_encode(self):
+        """Ensure encoding follows HDRip → 480p → 720p → 1080p"""
+        if self.__qual == "Hdri":
+            next_qual = "480"
+        elif self.__qual == "480":
+            next_qual = "720"
+        elif self.__qual == "720":
+            next_qual = "1080"
+        else:
+            return
+
+        LOGS.info(f"Starting Next Encode: {next_qual}p")
+        await sendMessage(self.message.chat.id, f"Starting {next_qual}p Encoding...")
+
+        encoder = FFEncoder(self.message, self.out_path, f"encoded_{next_qual}.mkv", next_qual)
+        await encoder.start_encode()
 
     async def cancel_encode(self):
         self.is_cancelled = True
@@ -90,8 +105,13 @@ class FFEncoder:
                     text = await f.read()
                     times = findall(r'time=(\d+:\d+:\d+\.\d+)', text)
                     if times:
-                        self.__total_time = convertTime(times[-1])
-                        elapsed = time() - self.__start_time
-                        percent = min(100, floor((elapsed / self.__total_time) * 100))
-                        await editMessage(self.message, f"Encoding... {percent}%")
-            await asleep(10)  # Update every 10 seconds
+                        try:
+                            self.__total_time = convertTime(times[-1])
+                            elapsed = time() - self.__start_time
+                            percent = min(100, floor((elapsed / self.__total_time) * 100))
+                            await editMessage(self.message, f"Encoding... {percent}%")
+                        except ValueError as e:
+                            LOGS.error(f"Error: {e}")
+                            await rep.report(f"FFmpeg progress error: {e}", "error")
+                            break
+            await asleep(10)
