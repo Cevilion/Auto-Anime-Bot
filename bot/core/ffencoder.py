@@ -28,7 +28,7 @@ class FFEncoder:
         self.__qual = qual
         self.dl_path = path
         self.__total_time = None
-        self.out_path = ospath.join("encode", f"{name}_{qual}.mkv")  # Unique filenames
+        self.out_path = ospath.join("encode", f"{self.__name}_{qual}.mkv")  # Unique filenames
         self.__prog_file = 'prog.txt'
         self.__start_time = time()
 
@@ -66,8 +66,9 @@ class FFEncoder:
 
         if return_code == 0 and ospath.exists(out_npath):
             await aiorename(out_npath, self.out_path)
-            await self.upload_file()  # Upload before next encode
-            await self.next_encode()
+            await self.upload_file()  # Ensure upload finishes before next encode
+            if not self.is_cancelled:
+                await self.next_encode()
             return self.out_path
         else:
             error_msg = (await self.__proc.stderr.read()).decode().strip()
@@ -93,7 +94,7 @@ class FFEncoder:
         LOGS.info(f"Starting Next Encode: {next_qual}p")
         await sendMessage(self.message.chat.id, f"Starting {next_qual}p Encoding...")
 
-        encoder = FFEncoder(self.message, self.out_path, f"encoded_{next_qual}", next_qual)
+        encoder = FFEncoder(self.message, self.out_path, self.__name, next_qual)
         await encoder.start_encode()
 
     async def cancel_encode(self):
