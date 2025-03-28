@@ -10,6 +10,7 @@ from asyncio.subprocess import PIPE
 from bot import Var, ffpids_cache, LOGS
 from .func_utils import mediainfo, convertBytes, convertTime, sendMessage, editMessage
 from .reporter import rep
+from .upload import upload_to_telegram  # Importing the upload function
 
 ffargs = {
     '1080': Var.FFCODE_1080,
@@ -27,7 +28,7 @@ class FFEncoder:
         self.__qual = qual
         self.dl_path = path
         self.__total_time = None
-        self.out_path = ospath.join("encode", name)
+        self.out_path = ospath.join("encode", f"{name}_{qual}.mkv")  # Unique filenames
         self.__prog_file = 'prog.txt'
         self.__start_time = time()
 
@@ -65,11 +66,18 @@ class FFEncoder:
 
         if return_code == 0 and ospath.exists(out_npath):
             await aiorename(out_npath, self.out_path)
+            await self.upload_file()  # Upload before next encode
             await self.next_encode()
             return self.out_path
         else:
             error_msg = (await self.__proc.stderr.read()).decode().strip()
             await rep.report(error_msg, "error")
+
+    async def upload_file(self):
+        """Uploads the encoded file before proceeding to the next quality."""
+        LOGS.info(f"Uploading {self.__qual}p...")
+        await sendMessage(self.message.chat.id, f"Uploading {self.__qual}p...")
+        await upload_to_telegram(self.message, self.out_path, self.__qual)
 
     async def next_encode(self):
         """Ensures encoding follows HDRip → 480p → 720p → 1080p."""
@@ -85,7 +93,7 @@ class FFEncoder:
         LOGS.info(f"Starting Next Encode: {next_qual}p")
         await sendMessage(self.message.chat.id, f"Starting {next_qual}p Encoding...")
 
-        encoder = FFEncoder(self.message, self.out_path, f"encoded_{next_qual}.mkv", next_qual)
+        encoder = FFEncoder(self.message, self.out_path, f"encoded_{next_qual}", next_qual)
         await encoder.start_encode()
 
     async def cancel_encode(self):
