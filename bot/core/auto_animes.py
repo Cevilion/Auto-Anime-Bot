@@ -21,7 +21,7 @@ btn_formatter = {
     '1080': '𝟭𝟬𝟴𝟬𝗽',
     '720': '𝟳𝟮𝟬𝗽',
     '480': '𝟰𝟴𝟬𝗽',
-    'Hdri': '𝐻𝑑𝑟𝑖𝑝'  # Add HDRip
+    'Hdri': '𝐻𝑑𝑟𝑖𝑝'
 }
 
 async def fetch_animes():
@@ -84,7 +84,9 @@ async def get_animes(name, torrent, force=False):
             await ffLock.acquire()
 
             btns = []
-            for qual in list(Var.QUALS):  # Iterate over a copy
+            Var.QUALS = ['Hdri', '480', '720', '1080']  # Ensuring correct order
+
+            for qual in Var.QUALS:
                 filename = await aniInfo.get_upname(qual)
                 out_path = None
 
