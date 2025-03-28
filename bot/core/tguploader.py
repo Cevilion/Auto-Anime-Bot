@@ -30,7 +30,8 @@ class TgUploader:
 
         try:
             if qual.lower() == "hdrip":
-                Var.QUALS.discard(qual)
+                if qual in Var.QUALS:
+    Var.QUALS.remove(qual)
                 await self.update_progress()
 
             thumb_path = "thumb.jpg" if ospath.exists("thumb.jpg") else None
