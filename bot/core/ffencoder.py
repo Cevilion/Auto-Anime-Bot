@@ -4,11 +4,10 @@ from time import time
 from os import path as ospath
 from aiofiles import open as aiopen
 from aiofiles.os import remove as aioremove, rename as aiorename
-from shlex import split as ssplit
 from asyncio import sleep as asleep, gather, create_subprocess_shell, create_task
 from asyncio.subprocess import PIPE
 
-from bot import Var, bot_loop, ffpids_cache, LOGS
+from bot import Var, ffpids_cache, LOGS
 from .func_utils import mediainfo, convertBytes, convertTime, sendMessage, editMessage
 from .reporter import rep
 
@@ -33,6 +32,7 @@ class FFEncoder:
         self.__start_time = time()
 
     async def start_encode(self):
+        """Starts the FFmpeg encoding process."""
         if ospath.exists(self.__prog_file):
             await aioremove(self.__prog_file)
 
@@ -72,15 +72,15 @@ class FFEncoder:
             await rep.report(error_msg, "error")
 
     async def next_encode(self):
-        """Ensure encoding follows HDRip → 480p → 720p → 1080p"""
-        if self.__qual == "Hdri":
-            next_qual = "480"
-        elif self.__qual == "480":
-            next_qual = "720"
-        elif self.__qual == "720":
-            next_qual = "1080"
-        else:
-            return
+        """Ensures encoding follows HDRip → 480p → 720p → 1080p."""
+        next_qual = {
+            "Hdri": "480",
+            "480": "720",
+            "720": "1080"
+        }.get(self.__qual)
+
+        if not next_qual:
+            return  # No next step
 
         LOGS.info(f"Starting Next Encode: {next_qual}p")
         await sendMessage(self.message.chat.id, f"Starting {next_qual}p Encoding...")
@@ -89,29 +89,51 @@ class FFEncoder:
         await encoder.start_encode()
 
     async def cancel_encode(self):
+        """Cancels encoding process."""
         self.is_cancelled = True
-        if self.__proc is not None:
+        if self.__proc:
             try:
                 self.__proc.kill()
             except:
                 pass
 
     async def progress(self):
-        """Track FFmpeg progress."""
-        self.progress = {}
+        """Tracks FFmpeg progress in real-time."""
+        self.__total_time = await mediainfo(self.dl_path, get_duration=True)
+        if isinstance(self.__total_time, str):
+            self.__total_time = 1.0
+
         while not self.is_cancelled and self.__proc.returncode is None:
             if ospath.exists(self.__prog_file):
-                async with aiopen(self.__prog_file, 'r') as f:
-                    text = await f.read()
-                    times = findall(r'time=(\d+:\d+:\d+\.\d+)', text)
-                    if times:
-                        try:
-                            self.__total_time = convertTime(times[-1])
-                            elapsed = time() - self.__start_time
-                            percent = min(100, floor((elapsed / self.__total_time) * 100))
-                            await editMessage(self.message, f"Encoding... {percent}%")
-                        except ValueError as e:
-                            LOGS.error(f"Error: {e}")
-                            await rep.report(f"FFmpeg progress error: {e}", "error")
-                            break
-            await asleep(10)
+                async with aiopen(self.__prog_file, 'r') as p:
+                    text = await p.read()
+
+                if text:
+                    t = findall(r"out_time_ms=(\d+)", text)
+                    s = findall(r"total_size=(\d+)", text)
+
+                    time_done = floor(int(t[-1]) / 1000000) if t else 1
+                    ensize = int(s[-1]) if s else 0
+
+                    elapsed = time() - self.__start_time
+                    speed = ensize / max(elapsed, 1)
+                    percent = round((time_done / self.__total_time) * 100, 2)
+                    tsize = ensize / (max(percent, 0.01) / 100)
+                    eta = (tsize - ensize) / max(speed, 0.01)
+
+                    bar = floor(percent / 8) * "█" + (12 - floor(percent / 8)) * "▒"
+
+                    progress_str = f"""<blockquote>‣ <b>Anime Name :</b> <b><i>{self.__name}</i></b></blockquote>
+<blockquote>‣ <b>Status :</b> <i>Encoding</i>
+    <code>[{bar}]</code> {percent}%</blockquote> 
+<blockquote>   ‣ <b>Size :</b> {convertBytes(ensize)} out of ~ {convertBytes(tsize)}
+    ‣ <b>Speed :</b> {convertBytes(speed)}/s
+    ‣ <b>Time Taken :</b> {convertTime(elapsed)}
+    ‣ <b>Time Left :</b> {convertTime(eta)}</blockquote>
+<blockquote>‣ <b>File(s) Encoded:</b> <code>{Var.QUALS.index(self.__qual)} / {len(Var.QUALS)}</code></blockquote>"""
+
+                    await editMessage(self.message, progress_str)
+
+                    if "progress=end" in text:
+                        break
+            await asleep(8)
