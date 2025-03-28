@@ -15,9 +15,8 @@ class TgUploader:
         self.message = message
         self.__name = ""
         self.__qual = ""
-        self.__start = time()
         self.__updater = time()
-        
+        self.__start = time()  # Start time for calculating elapsed time
         if not hasattr(Var, "TOTAL_QUALS"):
             Var.TOTAL_QUALS = Var.QUALS.copy()
 
@@ -73,10 +72,11 @@ class TgUploader:
 
     async def progress_status(self, current, total):
         now = time()
+        elapsed_time = now - self.__start  # Time taken since upload started
         if (now - self.__updater) >= 7 or current == total:
             self.__updater = now
             percent = round(current / total * 100, 2)
-            speed = current / (now - self.__start) if (now - self.__start) > 0 else 0
+            speed = current / elapsed_time if elapsed_time > 0 else 0
             eta = round((total - current) / speed) if speed > 0 else 0
             bar = floor(percent / 8) * "█" + (12 - floor(percent / 8)) * "▒"
 
@@ -90,7 +90,8 @@ class TgUploader:
     
     ‣ <b>Size :</b> {convertBytes(current)} / {convertBytes(total)}
     ‣ <b>Speed :</b> {convertBytes(speed)}/s
-    ‣ <b>Time Left :</b> {convertTime(eta)}
+    ‣ <b>Time Left :</b> {convertTime(eta) if eta > 0 else "Calculating..."}
+    ‣ <b>Time Took :</b> {convertTime(elapsed_time)}
 
 ‣ <b>File(s) Encoded:</b> <code>{completed} / {total_qualities}</code>"""
 
