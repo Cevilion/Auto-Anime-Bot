@@ -26,7 +26,7 @@ class TgUploader:
 
         if not ospath.exists(path):
             await rep.report(f"[ERROR] File missing: {path}", "error")
-            return  
+            return None  
 
         try:
             if qual.lower() == "hdrip":
@@ -53,11 +53,12 @@ class TgUploader:
 
             if not msg or not hasattr(msg, "id"):
                 await rep.report(f"[ERROR] Upload failed: {path}", "error")
-                return
+                return None
 
             await rep.report(f"Uploaded: {self.__name}, Message ID: {msg.id}", "info")
             Var.QUALS.discard(qual)
             await self.update_progress()
+            return msg  # Ensure we return the message object
 
         except FloodWait as e:
             await sleep(e.value * 1.5)
@@ -65,6 +66,7 @@ class TgUploader:
 
         except Exception:
             await rep.report(format_exc(), "error")
+            return None
 
         finally:
             if ospath.exists(path):
